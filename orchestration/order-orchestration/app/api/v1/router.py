@@ -5,9 +5,16 @@ from typing import Optional
 router = APIRouter()
 
 
+class OrderItemInput(BaseModel):
+    product_id: str
+    sku_id: str
+    quantity: int
+    unit_price: float
+
+
 class CheckoutRequest(BaseModel):
     user_id: str
-    items: list[dict]
+    items: list[OrderItemInput]
     promotion_code: Optional[str] = None
     address_id: str
 
