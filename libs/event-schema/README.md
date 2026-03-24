@@ -1,14 +1,29 @@
-# Libs - Event Schema
+# event-schema（Kafka 事件 Schema 库）
 
-## 职责
+定义服务间通过 Kafka 传递的事件消息结构，使用 Pydantic v2 进行校验。
 
-定义跨服务的事件契约，所有发布/订阅的消息体均在此声明，防止各服务各自定义导致不一致。
+## 事件定义
 
-## 事件列表
+- **order_events.py**：订单事件（OrderCreatedEvent, OrderPaidEvent, OrderCancelledEvent, OrderShippedEvent）
+- **inventory_events.py**：库存事件（InventoryLockedEvent, InventoryLockFailedEvent）
+- **user_events.py**：用户事件（UserRegisteredEvent）
+- **aftersale_events.py**：售后事件（AftersaleApprovedEvent）
 
-| 事件名 | 发布方 | 消费方 | 说明 |
-|--------|--------|--------|------|
-| `order.created` | order-service | inventory-service, communication-service | 订单创建 |
-| `order.cancelled` | order-service | inventory-service | 订单取消，库存回滚 |
-| `inventory.low` | inventory-service | communication-service | 库存不足告警 |
-| `user.registered` | user-service | communication-service | 新用户注册欢迎通知 |
+## 使用方式
+
+```python
+from libs.event_schema.order_events import OrderCreatedEvent
+
+# 生产者
+event = OrderCreatedEvent(order_id="ORD-001", user_id="USR-001", total=99.0)
+await producer.send("order.created", event.model_dump_json().encode())
+
+# 消费者
+event = OrderCreatedEvent.model_validate_json(message.value)
+```
+
+## 技术依赖
+
+- Python 3.11+
+- Pydantic v2
+- aiokafka
