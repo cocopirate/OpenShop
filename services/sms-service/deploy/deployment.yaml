@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sms-service
+  namespace: openshop
+  labels:
+    app: sms-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sms-service
+  template:
+    metadata:
+      labels:
+        app: sms-service
+    spec:
+      containers:
+        - name: sms-service
+          image: openshop/sms-service:latest
+          ports:
+            - containerPort: 8010
+          envFrom:
+            - configMapRef:
+                name: openshop-config
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: openshop-secrets
+                  key: DATABASE_URL
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: openshop-secrets
+                  key: REDIS_URL
+            - name: ALIYUN_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: sms-secrets
+                  key: ALIYUN_ACCESS_KEY_ID
+            - name: ALIYUN_ACCESS_KEY_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: sms-secrets
+                  key: ALIYUN_ACCESS_KEY_SECRET
+            - name: ALIYUN_SMS_SIGN_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: sms-secrets
+                  key: ALIYUN_SMS_SIGN_NAME
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8010
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8010
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
