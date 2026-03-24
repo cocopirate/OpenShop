@@ -6,8 +6,9 @@ class Settings(BaseSettings):
     SERVICE_PORT: int = 8004
     DEBUG: bool = False
 
-    DATABASE_URL: str = "postgresql+asyncpg://openshop:openshop123@localhost:5432/openshop"
-    REDIS_URL: str = "redis://:redis123@localhost:6379/0"
+    # Required: set via environment variables or .env file (see .env.example)
+    DATABASE_URL: str
+    REDIS_URL: str
     KAFKA_BOOTSTRAP_SERVERS: str = "localhost:9092"
 
     class Config:
