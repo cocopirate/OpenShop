@@ -1,3 +1,5 @@
+from enum import Enum
+
 from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import Optional
@@ -5,9 +7,15 @@ from typing import Optional
 router = APIRouter()
 
 
+class NotificationChannel(str, Enum):
+    push = "push"
+    email = "email"
+    in_app = "in_app"
+
+
 class SendRequest(BaseModel):
     user_id: str
-    channel: str  # push | email | in_app
+    channel: NotificationChannel
     title: str
     content: str
     template_id: Optional[str] = None
