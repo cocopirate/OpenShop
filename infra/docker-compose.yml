@@ -1,40 +1,84 @@
+# Local development infrastructure ONLY. Do not use these credentials in production.
 version: "3.8"
 
 services:
-  mysql:
-    image: mysql:8.0
-    container_name: openshop-mysql
+  postgres:
+    image: postgres:16-alpine
+    container_name: openshop-postgres
     environment:
-      MYSQL_ROOT_PASSWORD: root123
-      MYSQL_DATABASE: openshop
+      POSTGRES_USER: openshop
+      POSTGRES_PASSWORD: openshop123
+      POSTGRES_DB: openshop
     ports:
-      - "3306:3306"
+      - "5432:5432"
     volumes:
-      - mysql-data:/var/lib/mysql
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openshop"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
     container_name: openshop-redis
+    command: redis-server --requirepass redis123
     ports:
       - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis123", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  rabbitmq:
-    image: rabbitmq:3-management
-    container_name: openshop-rabbitmq
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: openshop-kafka
+    depends_on:
+      - zookeeper
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "9092:9092"
     environment:
-      RABBITMQ_DEFAULT_USER: admin
-      RABBITMQ_DEFAULT_PASS: admin123
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
-  nacos:
-    image: nacos/nacos-server:v2.3.0
-    container_name: openshop-nacos
-    environment:
-      MODE: standalone
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: openshop-zookeeper
     ports:
-      - "8848:8848"
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  elasticsearch:
+    image: elasticsearch:8.13.0
+    container_name: openshop-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q \'\"status\":\"green\"\\|\"status\":\"yellow\"\'"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
 volumes:
-  mysql-data:
+  postgres-data:
+  redis-data:
+  es-data:
