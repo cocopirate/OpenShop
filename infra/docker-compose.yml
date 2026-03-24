@@ -1,0 +1,40 @@
+version: "3.8"
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: openshop-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: openshop
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+  redis:
+    image: redis:7-alpine
+    container_name: openshop-redis
+    ports:
+      - "6379:6379"
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: openshop-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin123
+
+  nacos:
+    image: nacos/nacos-server:v2.3.0
+    container_name: openshop-nacos
+    environment:
+      MODE: standalone
+    ports:
+      - "8848:8848"
+
+volumes:
+  mysql-data:
