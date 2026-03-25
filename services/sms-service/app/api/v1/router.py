@@ -29,6 +29,8 @@ from app.services.sms_service import (
 router = APIRouter()
 log = structlog.get_logger(__name__)
 
+_MAX_PAGE_SIZE = 100
+
 
 def _get_client_ip(request: Request) -> str:
     forwarded_for = request.headers.get("X-Forwarded-For")
@@ -160,8 +162,8 @@ async def get_sms_records_endpoint(
     size: int = 20,
     db: AsyncSession = Depends(get_db),
 ):
-    if size > 100:
-        size = 100
+    if size > _MAX_PAGE_SIZE:
+        size = _MAX_PAGE_SIZE
     records, total = await get_sms_records(
         db, phone=phone, start_time=start_time, end_time=end_time, status=status, page=page, size=size
     )

@@ -10,7 +10,7 @@ class SmsSendRequest(BaseModel):
     phone: str = Field(..., description="E.164 or local format phone number")
     template_id: str = Field(..., description="SMS template identifier")
     params: dict = Field(default_factory=dict, description="Template variable substitutions")
-    request_id: Optional[str] = Field(None, description="Client-provided idempotency key (max 64 chars)")
+    request_id: Optional[str] = Field(None, max_length=64, description="Client-provided idempotency key (max 64 chars)")
 
 
 class SmsSendResponse(BaseModel):

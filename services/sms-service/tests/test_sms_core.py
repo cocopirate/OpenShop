@@ -76,7 +76,6 @@ async def test_rate_limit_blocks_when_exceeded():
     pipe.execute = AsyncMock(return_value=[0, 5, 1, True])
     redis.pipeline = MagicMock(return_value=pipe)
 
-    import time
     oldest_ts = time.time() - 30
     redis.zrange = AsyncMock(return_value=[("entry", oldest_ts)])
     redis.zremrangebyscore = AsyncMock(return_value=1)
