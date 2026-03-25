@@ -1,12 +1,12 @@
 # User Service - Admin RBAC 权限系统
 
-Admin 后台用户 / 角色 / 权限管理服务，基于 JWT + Redis 实现实时鉴权。
+管理后台管理员用户 / 角色 / 权限管理服务，基于 JWT + Redis 实现实时鉴权。
 
 ## 服务简介 / Overview
 
 本服务为 OpenShop 管理后台提供：
 
-- 用户账户管理（CRUD、状态控制）
+- 管理员用户账户管理（CRUD、状态控制）
 - 角色管理（CRUD、权限分配）
 - 权限管理（菜单权限、按钮权限、接口权限）
 - JWT 登录 / 登出，Redis 实时撤销
@@ -25,21 +25,21 @@ API Gateway  ──── JWT 验证 / Redis 状态校验
   │
   ▼
 User Service
-  ├── PostgreSQL  (用户 / 角色 / 权限持久化)
-  └── Redis       (用户状态 / 权限版本 / 权限缓存)
+  ├── PostgreSQL  (管理员用户 / 角色 / 权限持久化)
+  └── Redis       (管理员用户状态 / 权限版本 / 权限缓存)
 ```
 
 RBAC 模型：
 
 ```
-User ──(user_roles)──▶ Role ──(role_permissions)──▶ Permission
+AdminUser ──(admin_user_roles)──▶ Role ──(role_permissions)──▶ Permission
 ```
 
 ---
 
 ## 数据模型 / Data Models
 
-### User
+### AdminUser（管理员用户）
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
@@ -73,7 +73,7 @@ User ──(user_roles)──▶ Role ──(role_permissions)──▶ Permissi
 
 ### 关联表
 
-- **user_roles** — (user_id: BigInteger, role_id: BigInteger)
+- **admin_user_roles** — (admin_user_id: BigInteger, role_id: BigInteger)
 - **role_permissions** — (role_id: BigInteger, permission_id: BigInteger)
 
 ---
@@ -108,7 +108,7 @@ User ──(user_roles)──▶ Role ──(role_permissions)──▶ Permissi
 
 | Key | 说明 |
 |-----|------|
-| `user_status:{uid}` | 用户状态（active/disabled），账号禁用立即生效 |
+| `user_status:{uid}` | 管理员用户状态（active/disabled），账号禁用立即生效 |
 | `user_perm_ver:{uid}` | 权限版本号，变更权限时 +1 |
 | `user_permissions:{uid}` | 权限列表缓存（JSON），减少 DB 查询 |
 
@@ -132,16 +132,16 @@ User ──(user_roles)──▶ Role ──(role_permissions)──▶ Permissi
 | POST | `/api/auth/login` | 登录获取 Token |
 | POST | `/api/auth/logout` | 登出（Redis 清除状态） |
 
-### 用户管理 User Management
+### 管理员用户管理 AdminUser Management
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/users` | 获取用户列表 |
-| POST | `/api/users` | 创建用户 |
-| GET | `/api/users/{id}` | 获取用户详情 |
-| PUT | `/api/users/{id}` | 更新用户 |
-| DELETE | `/api/users/{id}` | 删除用户 |
-| POST | `/api/users/{id}/status` | 修改用户状态 |
+| GET | `/api/users` | 获取管理员用户列表 |
+| POST | `/api/users` | 创建管理员用户 |
+| GET | `/api/users/{id}` | 获取管理员用户详情 |
+| PUT | `/api/users/{id}` | 更新管理员用户 |
+| DELETE | `/api/users/{id}` | 删除管理员用户 |
+| POST | `/api/users/{id}/status` | 修改管理员用户状态 |
 | POST | `/api/users/{id}/roles` | 分配角色 |
 
 ### 角色管理 Role Management
@@ -171,7 +171,7 @@ User ──(user_roles)──▶ Role ──(role_permissions)──▶ Permissi
 
 ### perm_ver 机制
 
-每次修改用户角色或角色权限时，服务将 Redis 中该用户的 `user_perm_ver:{uid}` 自增 1。
+每次修改管理员用户角色或角色权限时，服务将 Redis 中该管理员用户的 `user_perm_ver:{uid}` 自增 1。
 
 ```python
 # 权限变更时使旧 Token 失效
@@ -179,21 +179,21 @@ redis.incr(f"user_perm_ver:{uid}")
 redis.delete(f"user_permissions:{uid}")  # 清除权限缓存
 ```
 
-Gateway 在每次请求时对比 Token 中的 `ver` 与 Redis 中的版本号，不一致则返回 401，强制用户重新登录并获取包含最新权限的新 Token。
+Gateway 在每次请求时对比 Token 中的 `ver` 与 Redis 中的版本号，不一致则返回 401，强制管理员用户重新登录并获取包含最新权限的新 Token。
 
-### 用户禁用流程
+### 管理员用户禁用流程
 
 ```
 管理员调用 POST /api/users/{id}/status {"status": "disabled"}
   │
   ▼
-DB 更新 users.status = 'disabled'
+DB 更新 admin_users.status = 'disabled'
   │
   ▼
 Redis SET user_status:{uid} "disabled"
   │
   ▼
-所有携带该用户 Token 的请求 → Gateway 检测 → 立即返回 401
+所有携带该管理员用户 Token 的请求 → Gateway 检测 → 立即返回 401
 ```
 
 ---

@@ -56,15 +56,15 @@ def upgrade() -> None:
     )
     op.create_index("ix_roles_name", "roles", ["name"], unique=True)
 
-    # users
+    # admin_users
     op.create_table(
-        "users",
+        "admin_users",
         sa.Column("id", sa.BigInteger(), autoincrement=True, nullable=False),
         sa.Column("username", sa.String(length=64), nullable=False),
         sa.Column("hashed_password", sa.String(length=256), nullable=False),
         sa.Column(
             "status",
-            sa.Enum("active", "disabled", name="userstatus"),
+            sa.Enum("active", "disabled", name="adminuserstatus"),
             nullable=False,
             server_default="active",
         ),
@@ -77,7 +77,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("username"),
     )
-    op.create_index("ix_users_username", "users", ["username"], unique=True)
+    op.create_index("ix_admin_users_username", "admin_users", ["username"], unique=True)
 
     # role_permissions association
     op.create_table(
@@ -89,23 +89,23 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("role_id", "permission_id"),
     )
 
-    # user_roles association
+    # admin_user_roles association
     op.create_table(
-        "user_roles",
-        sa.Column("user_id", sa.BigInteger(), nullable=False),
+        "admin_user_roles",
+        sa.Column("admin_user_id", sa.BigInteger(), nullable=False),
         sa.Column("role_id", sa.BigInteger(), nullable=False),
         sa.ForeignKeyConstraint(["role_id"], ["roles.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
-        sa.PrimaryKeyConstraint("user_id", "role_id"),
+        sa.ForeignKeyConstraint(["admin_user_id"], ["admin_users.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("admin_user_id", "role_id"),
     )
 
 
 def downgrade() -> None:
-    op.drop_table("user_roles")
+    op.drop_table("admin_user_roles")
     op.drop_table("role_permissions")
-    op.drop_index("ix_users_username", table_name="users")
-    op.drop_table("users")
-    op.execute("DROP TYPE IF EXISTS userstatus")
+    op.drop_index("ix_admin_users_username", table_name="admin_users")
+    op.drop_table("admin_users")
+    op.execute("DROP TYPE IF EXISTS adminuserstatus")
     op.drop_index("ix_roles_name", table_name="roles")
     op.drop_table("roles")
     op.drop_index("ix_permissions_code", table_name="permissions")

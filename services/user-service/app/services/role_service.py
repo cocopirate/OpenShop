@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.permission import Permission
 from app.models.role import Role
-from app.models.user import User
+from app.models.user import AdminUser
 from app.schemas.role import RoleCreate, RoleUpdate
 
 
@@ -72,12 +72,12 @@ async def assign_permissions_to_role(
     await db.flush()
     await db.refresh(role)
 
-    # Update Redis for all users who have this role
-    users_result = await db.execute(
-        select(User).options(selectinload(User.roles).selectinload(Role.permissions))
+    # Update Redis for all admin users who have this role
+    admin_users_result = await db.execute(
+        select(AdminUser).options(selectinload(AdminUser.roles).selectinload(Role.permissions))
     )
-    users = list(users_result.scalars().all())
-    for user in users:
+    admin_users = list(admin_users_result.scalars().all())
+    for user in admin_users:
         has_role = any(r.id == role_id for r in user.roles)
         if not has_role:
             continue
