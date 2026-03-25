@@ -103,10 +103,10 @@ async def assign_roles_to_user(
             perm_codes.add(perm.code)
 
     # Increment perm version
-    ver_key = f"user_perm_ver:{user_id}"
+    ver_key = f"user_perm_ver:{user.public_id}"
     await redis.incr(ver_key)
     await redis.expire(ver_key, 86400)
-    await redis.set(f"user_permissions:{user_id}", json.dumps(list(perm_codes)), ex=86400)
+    await redis.set(f"user_permissions:{user.public_id}", json.dumps(list(perm_codes)), ex=86400)
     return user
 
 

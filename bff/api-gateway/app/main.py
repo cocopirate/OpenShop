@@ -1,11 +1,14 @@
 from contextlib import asynccontextmanager
+import uuid
 
 import structlog
-from fastapi import FastAPI, HTTPException, status as http_status
+from fastapi import FastAPI, HTTPException, Request, status as http_status
+from fastapi.responses import JSONResponse
 
 from app.api.v1.router import router
 from app.core.config import settings
 from app.core.redis import close_redis, get_redis, init_redis
+from app.core.response import err, http_status_to_code, set_request_id
 
 log = structlog.get_logger(__name__)
 
@@ -24,6 +27,35 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+
+# --------------------------------------------------------------------------- #
+# Request-ID middleware                                                         #
+# --------------------------------------------------------------------------- #
+
+
+@app.middleware("http")
+async def request_id_middleware(request: Request, call_next):
+    rid = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+    set_request_id(rid)
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = rid
+    return response
+
+
+# --------------------------------------------------------------------------- #
+# Exception handlers – unified response format                                 #
+# --------------------------------------------------------------------------- #
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+    code = http_status_to_code(exc.status_code)
+    detail = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=err(code, detail),
+    )
 
 
 @app.get("/health", tags=["health"])
