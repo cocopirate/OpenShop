@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import uuid
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -11,9 +12,14 @@ import pytest
 os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://u:p@localhost/test")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 
+# Import app.main early so that patch("app.main.*") can resolve the target.
+import app.main  # noqa: E402
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+_USER_UUID = uuid.UUID("7c181d7b-4224-4189-9132-f9a8fc58a373")
 
 
 def _make_mock_engine(ok: bool = True):
@@ -44,14 +50,16 @@ def _make_mock_redis(ok: bool = True):
     return redis
 
 
-def _make_mock_user(user_id: int = 1, username: str = "admin", status: str = "active"):
+def _make_mock_user(
+    public_id: uuid.UUID = _USER_UUID, username: str = "admin", status: str = "active"
+):
     """Create a mock admin user whose attributes serialize correctly via Pydantic."""
 
     class _MockAdminUser:
         pass
 
     user = _MockAdminUser()
-    user.id = user_id
+    user.public_id = public_id
     user.username = username
     user.hashed_password = "$2b$12$placeholder"
     user.status = status  # plain string – AdminUserStatus is a str-enum so this works
@@ -67,7 +75,7 @@ def _make_mock_user(user_id: int = 1, username: str = "admin", status: str = "ac
 
 @pytest.mark.asyncio
 async def test_login_success():
-    """POST /api/auth/login returns token on valid credentials."""
+    """POST /api/auth/admin/login returns token on valid credentials."""
     from httpx import ASGITransport, AsyncClient
 
     mock_engine = _make_mock_engine(ok=True)
@@ -104,20 +112,22 @@ async def test_login_success():
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
                 resp = await client.post(
-                    "/api/auth/login", json={"username": "admin", "password": "password"}
+                    "/api/auth/admin/login",
+                    json={"username": "admin", "password": "password"},
                 )
         finally:
             app.dependency_overrides.pop(get_db, None)
 
     assert resp.status_code == 200
     data = resp.json()
-    assert "access_token" in data
-    assert data["token_type"] == "bearer"
+    assert data["code"] == 0
+    assert "access_token" in data["data"]
+    assert data["data"]["token_type"] == "bearer"
 
 
 @pytest.mark.asyncio
 async def test_login_invalid_password():
-    """POST /api/auth/login returns 401 on wrong password."""
+    """POST /api/auth/admin/login returns 401 on wrong password."""
     from httpx import ASGITransport, AsyncClient
 
     mock_engine = _make_mock_engine(ok=True)
@@ -148,17 +158,21 @@ async def test_login_invalid_password():
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
                 resp = await client.post(
-                    "/api/auth/login", json={"username": "admin", "password": "wrong"}
+                    "/api/auth/admin/login",
+                    json={"username": "admin", "password": "wrong"},
                 )
         finally:
             app.dependency_overrides.pop(get_db, None)
 
     assert resp.status_code == 401
+    data = resp.json()
+    assert data["code"] != 0
+    assert data["data"] is None
 
 
 @pytest.mark.asyncio
 async def test_login_user_not_found():
-    """POST /api/auth/login returns 401 when user does not exist."""
+    """POST /api/auth/admin/login returns 401 when user does not exist."""
     from httpx import ASGITransport, AsyncClient
 
     mock_engine = _make_mock_engine(ok=True)
@@ -189,13 +203,14 @@ async def test_login_user_not_found():
                 transport=ASGITransport(app=app), base_url="http://test"
             ) as client:
                 resp = await client.post(
-                    "/api/auth/login",
+                    "/api/auth/admin/login",
                     json={"username": "nonexistent", "password": "password"},
                 )
         finally:
             app.dependency_overrides.pop(get_db, None)
 
     assert resp.status_code == 401
+    assert resp.json()["data"] is None
 
 
 @pytest.mark.asyncio
@@ -205,7 +220,7 @@ async def test_create_user():
 
     mock_engine = _make_mock_engine(ok=True)
     mock_redis = _make_mock_redis(ok=True)
-    mock_user = _make_mock_user(user_id=1, username="newuser")
+    mock_user = _make_mock_user(username="newuser")
 
     with (
         patch("app.main.engine", mock_engine),
@@ -227,7 +242,8 @@ async def test_create_user():
 
     assert resp.status_code == 201
     data = resp.json()
-    assert data["username"] == "newuser"
+    assert data["code"] == 0
+    assert data["data"]["username"] == "newuser"
 
 
 @pytest.mark.asyncio
@@ -237,7 +253,7 @@ async def test_get_users():
 
     mock_engine = _make_mock_engine(ok=True)
     mock_redis = _make_mock_redis(ok=True)
-    mock_users = [_make_mock_user(i, f"user{i}") for i in range(1, 4)]
+    mock_users = [_make_mock_user(username=f"user{i}") for i in range(1, 4)]
 
     with (
         patch("app.main.engine", mock_engine),
@@ -257,18 +273,19 @@ async def test_get_users():
 
     assert resp.status_code == 200
     data = resp.json()
-    assert isinstance(data, list)
-    assert len(data) == 3
+    assert data["code"] == 0
+    assert isinstance(data["data"], list)
+    assert len(data["data"]) == 3
 
 
 @pytest.mark.asyncio
 async def test_user_status_update():
-    """POST /api/users/{id}/status updates user status."""
+    """POST /api/users/{user_id}/status updates user status."""
     from httpx import ASGITransport, AsyncClient
 
     mock_engine = _make_mock_engine(ok=True)
     mock_redis = _make_mock_redis(ok=True)
-    mock_user = _make_mock_user(user_id=1, username="admin", status="disabled")
+    mock_user = _make_mock_user(username="admin", status="disabled")
 
     with (
         patch("app.main.engine", mock_engine),
@@ -285,21 +302,24 @@ async def test_user_status_update():
         from app.main import app
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            resp = await client.post("/api/users/1/status", json={"status": "disabled"})
+            resp = await client.post(
+                f"/api/users/{_USER_UUID}/status", json={"status": "disabled"}
+            )
 
     assert resp.status_code == 200
     data = resp.json()
-    assert data["status"] == "disabled"
+    assert data["code"] == 0
+    assert data["data"]["status"] == "disabled"
 
 
 @pytest.mark.asyncio
 async def test_assign_roles():
-    """POST /api/users/{id}/roles assigns roles to user."""
+    """POST /api/users/{user_id}/roles assigns roles to user."""
     from httpx import ASGITransport, AsyncClient
 
     mock_engine = _make_mock_engine(ok=True)
     mock_redis = _make_mock_redis(ok=True)
-    mock_user = _make_mock_user(user_id=1, username="admin")
+    mock_user = _make_mock_user(username="admin")
 
     with (
         patch("app.main.engine", mock_engine),
@@ -316,8 +336,11 @@ async def test_assign_roles():
         from app.main import app
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            resp = await client.post("/api/users/1/roles", json={"role_ids": [1, 2]})
+            resp = await client.post(
+                f"/api/users/{_USER_UUID}/roles", json={"role_ids": [1, 2]}
+            )
 
     assert resp.status_code == 200
     data = resp.json()
-    assert data["id"] == 1
+    assert data["code"] == 0
+    assert data["data"]["public_id"] == str(_USER_UUID)
