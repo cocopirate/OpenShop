@@ -11,7 +11,7 @@ import time
 import httpx
 
 from app.core.config import settings
-from app.providers import BaseSmsProvider, SendResult
+from app.providers import BaseSmsProvider, SendResult, StatusResult
 
 
 class TencentSmsProvider(BaseSmsProvider):
@@ -37,7 +37,7 @@ class TencentSmsProvider(BaseSmsProvider):
             "TemplateParamSet": list(params.values()),
             "PhoneNumberSet": [phone],
         }
-        headers = self._build_headers(payload)
+        headers = self._build_headers(payload, action=self._ACTION)
         try:
             async with httpx.AsyncClient(timeout=10) as client:
                 resp = await client.post(
@@ -48,18 +48,71 @@ class TencentSmsProvider(BaseSmsProvider):
                 resp.raise_for_status()
                 data = resp.json()
         except Exception as exc:
-            return SendResult(success=False, error_message=str(exc))
+            return SendResult(success=False, error_message=str(exc), error_code="NETWORK_ERROR")
 
-        send_status_set = (
-            data.get("Response", {}).get("SendStatusSet") or []
-        )
+        send_status_set = data.get("Response", {}).get("SendStatusSet") or []
         if send_status_set and send_status_set[0].get("Code") == "Ok":
             return SendResult(
                 success=True,
                 provider_message_id=send_status_set[0].get("SerialNo", ""),
             )
-        err = (send_status_set[0] if send_status_set else {}).get("Message", "unknown")
-        return SendResult(success=False, error_message=err)
+        first = send_status_set[0] if send_status_set else {}
+        return SendResult(
+            success=False,
+            error_code=first.get("Code", ""),
+            error_message=first.get("Message", "unknown"),
+        )
+
+    async def query_status(self, provider_message_id: str) -> StatusResult:
+        payload = {
+            "SmsSdkAppId": self._app_id,
+            "Limit": 10,
+            "BeginTime": int(time.time()) - 86400,
+            "EndTime": int(time.time()),
+            "PhoneNumber": "",
+        }
+        headers = self._build_headers(payload, action="PullSmsSendStatus")
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.post(
+                    self._ENDPOINT,
+                    content=json.dumps(payload),
+                    headers=headers,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+        except Exception as exc:
+            return StatusResult(
+                provider_message_id=provider_message_id,
+                status="UNKNOWN",
+                error_message=str(exc),
+            )
+
+        response = data.get("Response", {})
+        if "Error" in response:
+            return StatusResult(
+                provider_message_id=provider_message_id,
+                status="UNKNOWN",
+                error_message=response["Error"].get("Message", ""),
+            )
+
+        pull_list = response.get("PullSmsSendStatusSet") or []
+        for item in pull_list:
+            if item.get("SerialNo") == provider_message_id:
+                receipt_status = item.get("ReportStatus", "")
+                if receipt_status == "SUCCESS":
+                    status = "DELIVERED"
+                elif receipt_status:
+                    status = "FAILED"
+                else:
+                    status = "PENDING"
+                return StatusResult(
+                    provider_message_id=provider_message_id,
+                    status=status,
+                    error_message=item.get("Description", ""),
+                )
+
+        return StatusResult(provider_message_id=provider_message_id, status="PENDING")
 
     # ------------------------------------------------------------------
     # TC3-HMAC-SHA256 helpers
@@ -68,7 +121,7 @@ class TencentSmsProvider(BaseSmsProvider):
     def _sign(self, key: bytes, msg: str) -> bytes:
         return hmac.new(key, msg.encode(), hashlib.sha256).digest()
 
-    def _build_headers(self, payload: dict) -> dict:
+    def _build_headers(self, payload: dict, action: str) -> dict:
         body = json.dumps(payload)
         timestamp = int(time.time())
         date = time.strftime("%Y-%m-%d", time.gmtime(timestamp))
@@ -108,7 +161,7 @@ class TencentSmsProvider(BaseSmsProvider):
             "Authorization": authorization,
             "Content-Type": "application/json",
             "Host": self._HOST,
-            "X-TC-Action": self._ACTION,
+            "X-TC-Action": action,
             "X-TC-Timestamp": str(timestamp),
             "X-TC-Version": self._VERSION,
         }

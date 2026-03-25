@@ -18,7 +18,7 @@ from urllib.parse import quote, urlencode
 import httpx
 
 from app.core.config import settings
-from app.providers import BaseSmsProvider, SendResult
+from app.providers import BaseSmsProvider, SendResult, StatusResult
 
 
 class AliyunSmsProvider(BaseSmsProvider):
@@ -44,13 +44,54 @@ class AliyunSmsProvider(BaseSmsProvider):
                 resp.raise_for_status()
                 data = resp.json()
         except Exception as exc:  # network / HTTP errors
-            return SendResult(success=False, error_message=str(exc))
+            return SendResult(success=False, error_message=str(exc), error_code="NETWORK_ERROR")
 
         if data.get("Code") == "OK":
             return SendResult(success=True, provider_message_id=data.get("BizId", ""))
         return SendResult(
             success=False,
+            error_code=data.get("Code", ""),
             error_message=f"{data.get('Code')}: {data.get('Message')}",
+        )
+
+    async def query_status(self, provider_message_id: str) -> StatusResult:
+        query = self._build_status_query(provider_message_id)
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.get(self._ENDPOINT, params=query)
+                resp.raise_for_status()
+                data = resp.json()
+        except Exception as exc:
+            return StatusResult(
+                provider_message_id=provider_message_id,
+                status="UNKNOWN",
+                error_message=str(exc),
+            )
+
+        if data.get("Code") != "OK":
+            return StatusResult(
+                provider_message_id=provider_message_id,
+                status="UNKNOWN",
+                error_message=data.get("Message", ""),
+            )
+
+        sms_list = data.get("SmsSendDetailDTOs", {}).get("SmsSendDetailDTO", [])
+        if not sms_list:
+            return StatusResult(provider_message_id=provider_message_id, status="UNKNOWN")
+
+        detail = sms_list[0] if isinstance(sms_list, list) else sms_list
+        # Aliyun SendStatus: 1=waiting, 2=sending, 3=success, 5=failed
+        send_status = detail.get("SendStatus", 0)
+        if send_status == 3:
+            status = "DELIVERED"
+        elif send_status == 5:
+            status = "FAILED"
+        else:
+            status = "PENDING"
+        return StatusResult(
+            provider_message_id=provider_message_id,
+            status=status,
+            error_message=detail.get("ErrCode", ""),
         )
 
     # ------------------------------------------------------------------
@@ -72,7 +113,27 @@ class AliyunSmsProvider(BaseSmsProvider):
             "Timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "Version": self._API_VERSION,
         }
+        return self._sign_params(base_params)
 
+    def _build_status_query(self, provider_message_id: str) -> dict:
+        base_params = {
+            "AccessKeyId": self._key_id,
+            "Action": "QuerySendDetails",
+            "Format": "JSON",
+            "BizId": provider_message_id,
+            "SignatureMethod": "HMAC-SHA1",
+            "SignatureNonce": str(uuid.uuid4()),
+            "SignatureVersion": "1.0",
+            "Timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "Version": self._API_VERSION,
+            # Required by QuerySendDetails: SendDate and PageSize
+            "SendDate": time.strftime("%Y%m%d", time.gmtime()),
+            "PageSize": "10",
+            "CurrentPage": "1",
+        }
+        return self._sign_params(base_params)
+
+    def _sign_params(self, base_params: dict) -> dict:
         sorted_params = sorted(base_params.items())
         encoded = urlencode(
             [(k, v) for k, v in sorted_params],
