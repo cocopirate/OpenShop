@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,15 +29,15 @@ async def create_user(body: AdminUserCreate, db: AsyncSession = Depends(get_db))
 
 
 @router.get("/{user_id}", response_model=AdminUserResponse)
-async def get_user(user_id: int, db: AsyncSession = Depends(get_db)):
-    user = await user_service.get_user(db, user_id)
+async def get_user(user_id: UUID, db: AsyncSession = Depends(get_db)):
+    user = await user_service.get_user_by_public_id(db, user_id)
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return user
 
 
 @router.put("/{user_id}", response_model=AdminUserResponse)
-async def update_user(user_id: int, body: AdminUserUpdate, db: AsyncSession = Depends(get_db)):
+async def update_user(user_id: UUID, body: AdminUserUpdate, db: AsyncSession = Depends(get_db)):
     user = await user_service.update_user(db, user_id, body)
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
@@ -43,7 +45,7 @@ async def update_user(user_id: int, body: AdminUserUpdate, db: AsyncSession = De
 
 
 @router.delete("/{user_id}")
-async def delete_user(user_id: int, db: AsyncSession = Depends(get_db)):
+async def delete_user(user_id: UUID, db: AsyncSession = Depends(get_db)):
     deleted = await user_service.delete_user(db, user_id)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
@@ -51,7 +53,7 @@ async def delete_user(user_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/{user_id}/status", response_model=AdminUserResponse)
-async def update_status(user_id: int, body: AdminUserStatusUpdate, db: AsyncSession = Depends(get_db)):
+async def update_status(user_id: UUID, body: AdminUserStatusUpdate, db: AsyncSession = Depends(get_db)):
     redis = get_redis()
     user = await user_service.update_user_status(db, redis, user_id, body.status)
     if user is None:
@@ -60,7 +62,7 @@ async def update_status(user_id: int, body: AdminUserStatusUpdate, db: AsyncSess
 
 
 @router.post("/{user_id}/roles", response_model=AdminUserResponse)
-async def assign_roles(user_id: int, body: AssignRolesRequest, db: AsyncSession = Depends(get_db)):
+async def assign_roles(user_id: UUID, body: AssignRolesRequest, db: AsyncSession = Depends(get_db)):
     redis = get_redis()
     user = await user_service.assign_roles_to_user(db, redis, user_id, body.role_ids)
     if user is None:

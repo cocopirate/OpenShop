@@ -25,7 +25,12 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
-    model_config = {"env_file": ".env"}
+    model_config = {
+        # Priority (high → low): system env vars > .env > .env.local
+        # pydantic-settings resolves env_file list left-to-right, earlier files win.
+        "env_file": [".env", ".env.local"],
+        "env_file_encoding": "utf-8",
+    }
 
 
 settings = Settings()

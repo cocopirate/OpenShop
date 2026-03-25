@@ -16,7 +16,7 @@ class TokenResponse(BaseModel):
 class TokenPayload(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    uid: int
+    uid: str  # public_id (UUID v7) as string
     username: str
     roles: list[str]
     permissions: list[str]

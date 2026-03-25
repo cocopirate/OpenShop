@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Optional
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
@@ -24,7 +25,7 @@ class AdminUserStatusUpdate(BaseModel):
 class AdminUserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    public_id: UUID
     username: str
     status: str
     created_at: datetime

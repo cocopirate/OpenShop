@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from typing import Optional
+from uuid import UUID
 
 from redis.asyncio import Redis
 from sqlalchemy import select
@@ -20,7 +21,13 @@ async def get_users(db: AsyncSession) -> list[AdminUser]:
 
 
 async def get_user(db: AsyncSession, user_id: int) -> Optional[AdminUser]:
+    """Internal lookup by integer PK. Use get_user_by_public_id for external API."""
     result = await db.execute(select(AdminUser).where(AdminUser.id == user_id))
+    return result.scalar_one_or_none()
+
+
+async def get_user_by_public_id(db: AsyncSession, public_id: UUID) -> Optional[AdminUser]:
+    result = await db.execute(select(AdminUser).where(AdminUser.public_id == public_id))
     return result.scalar_one_or_none()
 
 
@@ -36,8 +43,8 @@ async def create_user(db: AsyncSession, data: AdminUserCreate) -> AdminUser:
     return user
 
 
-async def update_user(db: AsyncSession, user_id: int, data: AdminUserUpdate) -> Optional[AdminUser]:
-    user = await get_user(db, user_id)
+async def update_user(db: AsyncSession, public_id: UUID, data: AdminUserUpdate) -> Optional[AdminUser]:
+    user = await get_user_by_public_id(db, public_id)
     if user is None:
         return None
     if data.username is not None:
@@ -49,8 +56,8 @@ async def update_user(db: AsyncSession, user_id: int, data: AdminUserUpdate) -> 
     return user
 
 
-async def delete_user(db: AsyncSession, user_id: int) -> bool:
-    user = await get_user(db, user_id)
+async def delete_user(db: AsyncSession, public_id: UUID) -> bool:
+    user = await get_user_by_public_id(db, public_id)
     if user is None:
         return False
     await db.delete(user)
@@ -59,24 +66,24 @@ async def delete_user(db: AsyncSession, user_id: int) -> bool:
 
 
 async def update_user_status(
-    db: AsyncSession, redis: Redis, user_id: int, status: str
+    db: AsyncSession, redis: Redis, public_id: UUID, status: str
 ) -> Optional[AdminUser]:
-    user = await get_user(db, user_id)
+    user = await get_user_by_public_id(db, public_id)
     if user is None:
         return None
     user.status = AdminUserStatus(status)
     await db.flush()
     await db.refresh(user)
-    await redis.set(f"user_status:{user_id}", status, ex=86400)
+    await redis.set(f"user_status:{user.id}", status, ex=86400)
     return user
 
 
 async def assign_roles_to_user(
-    db: AsyncSession, redis: Redis, user_id: int, role_ids: list[int]
+    db: AsyncSession, redis: Redis, public_id: UUID, role_ids: list[int]
 ) -> Optional[AdminUser]:
     result = await db.execute(
         select(AdminUser)
-        .where(AdminUser.id == user_id)
+        .where(AdminUser.public_id == public_id)
         .options(selectinload(AdminUser.roles).selectinload(Role.permissions))
     )
     user = result.scalar_one_or_none()
