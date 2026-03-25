@@ -1,10 +1,9 @@
 # API Gateway 接口验证
-# 使用 VS Code REST Client 插件运行 (humao.rest-client)
 # 所有请求统一走网关 :8080，网关负责鉴权后转发到各上游服务
 
 @baseUrl = http://127.0.0.1:8080
-@adminToken = {{adminLogin.response.body.access_token}}
-
+@adminToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiI3YzE4MWQ3Yi00MjI0LTQxODktOTEzMi1mOWE4ZmM1OGEzNzMiLCJ1c2VybmFtZSI6ImFkbWluIiwicm9sZXMiOlsic3VwZXJhZG1pbiJdLCJwZXJtaXNzaW9ucyI6WyIqIl0sInN0YXR1cyI6ImFjdGl2ZSIsInZlciI6MCwiZXhwIjoxNzc0NDM0MDcwfQ.wsTYMXmH2DYS3q7222oC1lf8DWj9GRHiHZ_sVKnxgSg
+@adminId = 7c181d7b-4224-4189-9132-f9a8fc58a373
 
 ###############################################################
 # 网关自身 - 健康检查（无需鉴权）
@@ -24,7 +23,7 @@ GET {{baseUrl}}/health/ready
 ###############################################################
 
 # @name adminLogin
-# ① 先运行此请求，@adminToken 自动填充
+# ① 先运行此请求
 POST {{baseUrl}}/api/auth/admin/login
 Content-Type: application/json
 
@@ -62,7 +61,7 @@ Authorization: Bearer {{adminToken}}
 ###
 
 # @name getUser
-GET {{baseUrl}}/api/users/1
+GET {{baseUrl}}/api/users/7c181d7b-4224-4189-9132-f9a8fc58a373
 Authorization: Bearer {{adminToken}}
 
 ###
@@ -81,7 +80,7 @@ Content-Type: application/json
 ###
 
 # @name updateUser
-PUT {{baseUrl}}/api/users/1
+PUT {{baseUrl}}/api/users/{{adminId}}
 Authorization: Bearer {{adminToken}}
 Content-Type: application/json
 
@@ -92,7 +91,7 @@ Content-Type: application/json
 ###
 
 # @name updateUserStatus
-POST {{baseUrl}}/api/users/1/status
+POST {{baseUrl}}/api/users/{{adminId}}/status
 Authorization: Bearer {{adminToken}}
 Content-Type: application/json
 
@@ -103,7 +102,7 @@ Content-Type: application/json
 ###
 
 # @name assignRolesToUser
-POST {{baseUrl}}/api/users/1/roles
+POST {{baseUrl}}/api/users/{{adminId}}/roles
 Authorization: Bearer {{adminToken}}
 Content-Type: application/json
 
@@ -114,7 +113,7 @@ Content-Type: application/json
 ###
 
 # @name deleteUser
-DELETE {{baseUrl}}/api/users/999
+DELETE {{baseUrl}}/api/users/{{adminId}}
 Authorization: Bearer {{adminToken}}
 
 

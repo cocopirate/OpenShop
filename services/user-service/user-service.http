@@ -26,20 +26,8 @@ GET {{baseUrl}}/health/ready
 ###############################################################
 
 # @name adminLogin
-# 管理员登录（运行后 @adminToken 自动填充）
+# 管理员登录
 POST {{baseUrl}}/api/auth/admin/login
-Content-Type: application/json
-
-{
-  "username": "admin",
-  "password": "Admin@123"
-}
-
-###
-
-# @name login
-# 通用登录
-POST {{baseUrl}}/api/auth/login
 Content-Type: application/json
 
 {
