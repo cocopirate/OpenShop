@@ -1,0 +1,36 @@
+from pydantic_settings import BaseSettings
+
+
+class Settings(BaseSettings):
+    model_config = {"env_file": ".env"}
+
+    SERVICE_NAME: str = "api-gateway"
+    SERVICE_PORT: int = 8080
+    DEBUG: bool = False
+    ENV: str = "development"
+
+    REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_POOL_MAX_SIZE: int = 10
+
+    # JWT settings - must match user-service
+    SECRET_KEY: str = "change-this-secret-key-in-production"
+    ALGORITHM: str = "HS256"
+
+    # Upstream services
+    USER_SERVICE_URL: str = "http://user-service:8001"
+    MERCHANT_SERVICE_URL: str = "http://merchant-service:8002"
+    PRODUCT_SERVICE_URL: str = "http://product-service:8003"
+    INVENTORY_SERVICE_URL: str = "http://inventory-service:8004"
+    ORDER_SERVICE_URL: str = "http://order-service:8005"
+    AFTERSALE_SERVICE_URL: str = "http://aftersale-service:8006"
+    PROMOTION_SERVICE_URL: str = "http://promotion-service:8007"
+    LOCATION_SERVICE_URL: str = "http://location-service:8008"
+    NOTIFICATION_SERVICE_URL: str = "http://notification-service:8009"
+    SMS_SERVICE_URL: str = "http://sms-service:8010"
+
+    # Rate limits
+    RATE_LIMIT_PER_MINUTE: int = 60
+    RATE_LIMIT_PER_HOUR: int = 1000
+
+
+settings = Settings()
