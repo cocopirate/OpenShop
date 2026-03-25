@@ -26,7 +26,7 @@ def configure_tracing(app) -> None:
 
         headers = {}
         if settings.OTEL_TOKEN:
-            headers["Authentication"] = settings.OTEL_TOKEN
+            headers["Authorization"] = f"Bearer {settings.OTEL_TOKEN}"
 
         exporter = OTLPSpanExporter(
             endpoint=settings.OTEL_ENDPOINT,

@@ -1,6 +1,7 @@
 """Tests for new sms-service features: masking, rate limiter, circuit breaker, providers."""
 import os
 import sys
+import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -138,10 +139,7 @@ def test_get_provider_returns_fallback_when_circuit_open():
     import app.providers.factory as factory_mod
 
     factory_mod._circuit["open"] = True
-    factory_mod._circuit["last_failure_time"] = 1.0  # old failure, won't recover immediately
-
-    import time
-    factory_mod._circuit["last_failure_time"] = time.monotonic()  # just failed
+    factory_mod._circuit["last_failure_time"] = time.monotonic()  # just failed - won't recover yet
 
     with (
         patch.object(factory_mod.settings, "SMS_PROVIDER", "aliyun"),
