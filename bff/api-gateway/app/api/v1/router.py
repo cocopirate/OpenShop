@@ -1,9 +1,17 @@
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, Request, Response
+from fastapi.responses import JSONResponse
 import httpx
 import structlog
 
 from app.core.auth import PUBLIC_PATHS, verify_request
 from app.core.config import settings
+from app.core.response import (
+    ROUTE_NOT_FOUND,
+    UPSTREAM_TIMEOUT,
+    UPSTREAM_UNAVAILABLE,
+    err,
+    get_request_id,
+)
 
 router = APIRouter()
 log = structlog.get_logger(__name__)
@@ -44,7 +52,10 @@ async def proxy(request: Request, path: str):
     # Find upstream service
     upstream_url = _resolve_upstream(full_path)
     if upstream_url is None:
-        raise HTTPException(status_code=404, detail="No upstream service found")
+        return JSONResponse(
+            status_code=404,
+            content=err(ROUTE_NOT_FOUND, "No upstream service found"),
+        )
 
     target_url = upstream_url + full_path
     if request.url.query:
@@ -56,6 +67,8 @@ async def proxy(request: Request, path: str):
         "te", "trailer", "transfer-encoding", "upgrade",
     }
     headers = {k: v for k, v in request.headers.items() if k.lower() not in hop_by_hop}
+    # Propagate request_id to upstream service
+    headers["X-Request-ID"] = get_request_id()
     body = await request.body()
 
     async with httpx.AsyncClient(timeout=30.0) as client:
@@ -68,10 +81,16 @@ async def proxy(request: Request, path: str):
             )
         except httpx.ConnectError:
             log.warning("proxy.upstream_unavailable", url=target_url)
-            raise HTTPException(status_code=503, detail="Upstream service unavailable")
+            return JSONResponse(
+                status_code=503,
+                content=err(UPSTREAM_UNAVAILABLE, "Upstream service unavailable"),
+            )
         except httpx.TimeoutException:
             log.warning("proxy.upstream_timeout", url=target_url)
-            raise HTTPException(status_code=504, detail="Upstream service timeout")
+            return JSONResponse(
+                status_code=504,
+                content=err(UPSTREAM_TIMEOUT, "Upstream service timeout"),
+            )
 
     # Strip hop-by-hop headers before returning
     excluded = {
