@@ -23,6 +23,36 @@
 | `GET /app/v1/orders/{id}` | order-service + product-service |
 | `POST /app/v1/checkout` | order-orchestration |
 | `GET /app/v1/profile` | user-service + merchant-service |
+| `POST /app/v1/notifications/send-sms` | notification-service |
+
+### 发送短信通知 – 请求示例
+
+```
+POST /app/v1/notifications/send-sms
+Authorization: Bearer <token>
+
+{
+  "phone": "13800138000",
+  "template_id": "SMS_VERIFY_CODE",
+  "params": { "code": "123456" }
+}
+```
+
+BFF 将请求转发至 API Gateway，再路由到 notification-service：
+
+```
+App
+ ↓  POST /app/v1/notifications/send-sms
+app-bff（:8090）
+ ↓  POST /api/v1/notifications/send  { channel: "sms", ... }
+API Gateway（:8080）
+ ↓  路由转发
+notification-service（:8009）
+ ↓  POST /api/v1/sms/send
+sms-service（:8010）
+ ↓
+短信供应商（阿里云 / 腾讯云 / 创蓝）
+```
 
 ## 端口
 
