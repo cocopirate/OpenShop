@@ -131,6 +131,10 @@ GET /health HTTP/1.1
 Host: localhost:8080
 ```
 
+```bash
+curl http://localhost:8080/health
+```
+
 **响应示例（200 OK）**
 
 ```json
@@ -153,6 +157,10 @@ Kubernetes Readiness Probe。
 ```http
 GET /health/ready HTTP/1.1
 Host: localhost:8080
+```
+
+```bash
+curl http://localhost:8080/health/ready
 ```
 
 **响应示例（200 OK）**
@@ -191,6 +199,13 @@ Content-Type: application/json
 }
 ```
 
+```bash
+curl -X POST \
+  http://localhost:8080/api/auth/admin/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "Admin@123"}'
+```
+
 **响应示例（200 OK）**
 
 ```json
@@ -223,6 +238,12 @@ Host: localhost:8080
 Authorization: Bearer <access_token>
 ```
 
+```bash
+curl -X POST \
+  http://localhost:8080/api/auth/logout \
+  -H "Authorization: Bearer <access_token>"
+```
+
 **响应示例（200 OK）**
 
 ```json
@@ -247,6 +268,11 @@ Authorization: Bearer <access_token>
 GET /api/users HTTP/1.1
 Host: localhost:8080
 Authorization: Bearer <access_token>
+```
+
+```bash
+curl http://localhost:8080/api/users \
+  -H "Authorization: Bearer <access_token>"
 ```
 
 **响应示例（200 OK）**
@@ -293,6 +319,14 @@ Content-Type: application/json
 }
 ```
 
+```bash
+curl -X POST \
+  http://localhost:8080/api/users \
+  -H "Authorization: Bearer <access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{"username": "operator01", "password": "Operator@123", "status": "active"}'
+```
+
 **响应示例（201 Created）**
 
 ```json
@@ -318,6 +352,11 @@ Content-Type: application/json
 GET /api/users/7c181d7b-4224-4189-9132-f9a8fc58a373 HTTP/1.1
 Host: localhost:8080
 Authorization: Bearer <access_token>
+```
+
+```bash
+curl http://localhost:8080/api/users/7c181d7b-4224-4189-9132-f9a8fc58a373 \
+  -H "Authorization: Bearer <access_token>"
 ```
 
 **响应示例（200 OK）**
@@ -359,6 +398,14 @@ Content-Type: application/json
 }
 ```
 
+```bash
+curl -X PUT \
+  http://localhost:8080/api/users/7c181d7b-4224-4189-9132-f9a8fc58a373 \
+  -H "Authorization: Bearer <access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin_renamed"}'
+```
+
 **响应示例（200 OK）**
 
 ```json
@@ -384,6 +431,12 @@ Content-Type: application/json
 DELETE /api/users/a1b2c3d4-0000-0000-0000-000000000001 HTTP/1.1
 Host: localhost:8080
 Authorization: Bearer <access_token>
+```
+
+```bash
+curl -X DELETE \
+  http://localhost:8080/api/users/a1b2c3d4-0000-0000-0000-000000000001 \
+  -H "Authorization: Bearer <access_token>"
 ```
 
 **响应示例（200 OK）**
@@ -419,6 +472,14 @@ Content-Type: application/json
 {
   "status": "disabled"
 }
+```
+
+```bash
+curl -X POST \
+  http://localhost:8080/api/users/a1b2c3d4-0000-0000-0000-000000000001/status \
+  -H "Authorization: Bearer <access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "disabled"}'
 ```
 
 **响应示例（200 OK）**
@@ -459,6 +520,14 @@ Content-Type: application/json
 }
 ```
 
+```bash
+curl -X POST \
+  http://localhost:8080/api/users/a1b2c3d4-0000-0000-0000-000000000001/roles \
+  -H "Authorization: Bearer <access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{"role_ids": [1, 2]}'
+```
+
 **响应示例（200 OK）**
 
 ```json
@@ -486,6 +555,11 @@ Content-Type: application/json
 GET /api/roles HTTP/1.1
 Host: localhost:8080
 Authorization: Bearer <access_token>
+```
+
+```bash
+curl http://localhost:8080/api/roles \
+  -H "Authorization: Bearer <access_token>"
 ```
 
 **响应示例（200 OK）**
@@ -536,6 +610,14 @@ Content-Type: application/json
 }
 ```
 
+```bash
+curl -X POST \
+  http://localhost:8080/api/roles \
+  -H "Authorization: Bearer <access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "operator", "desc": "运营人员"}'
+```
+
 **响应示例（201 Created）**
 
 ```json
@@ -561,6 +643,11 @@ Content-Type: application/json
 GET /api/roles/1 HTTP/1.1
 Host: localhost:8080
 Authorization: Bearer <access_token>
+```
+
+```bash
+curl http://localhost:8080/api/roles/1 \
+  -H "Authorization: Bearer <access_token>"
 ```
 
 **响应示例（200 OK）**
@@ -602,6 +689,14 @@ Content-Type: application/json
 }
 ```
 
+```bash
+curl -X PUT \
+  http://localhost:8080/api/roles/2 \
+  -H "Authorization: Bearer <access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{"desc": "运营人员（已更新描述）"}'
+```
+
 **响应示例（200 OK）**
 
 ```json
@@ -627,6 +722,12 @@ Content-Type: application/json
 DELETE /api/roles/999 HTTP/1.1
 Host: localhost:8080
 Authorization: Bearer <access_token>
+```
+
+```bash
+curl -X DELETE \
+  http://localhost:8080/api/roles/999 \
+  -H "Authorization: Bearer <access_token>"
 ```
 
 **响应示例（200 OK）**
@@ -664,6 +765,14 @@ Content-Type: application/json
 }
 ```
 
+```bash
+curl -X POST \
+  http://localhost:8080/api/roles/2/permissions \
+  -H "Authorization: Bearer <access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{"permission_ids": [1, 2, 3]}'
+```
+
 **响应示例（200 OK）**
 
 ```json
@@ -691,6 +800,11 @@ Content-Type: application/json
 GET /api/permissions HTTP/1.1
 Host: localhost:8080
 Authorization: Bearer <access_token>
+```
+
+```bash
+curl http://localhost:8080/api/permissions \
+  -H "Authorization: Bearer <access_token>"
 ```
 
 **响应示例（200 OK）**
@@ -746,6 +860,14 @@ Content-Type: application/json
 }
 ```
 
+```bash
+curl -X POST \
+  http://localhost:8080/api/permissions \
+  -H "Authorization: Bearer <access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{"code": "report:view", "name": "查看报表", "type": "api", "method": "GET", "path": "/api/v1/reports"}'
+```
+
 **响应示例（201 Created）**
 
 ```json
@@ -775,6 +897,11 @@ Content-Type: application/json
 GET /api/permissions/1 HTTP/1.1
 Host: localhost:8080
 Authorization: Bearer <access_token>
+```
+
+```bash
+curl http://localhost:8080/api/permissions/1 \
+  -H "Authorization: Bearer <access_token>"
 ```
 
 **响应示例（200 OK）**
@@ -824,6 +951,14 @@ Content-Type: application/json
 }
 ```
 
+```bash
+curl -X PUT \
+  http://localhost:8080/api/permissions/10 \
+  -H "Authorization: Bearer <access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "查看所有报表"}'
+```
+
 **响应示例（200 OK）**
 
 ```json
@@ -853,6 +988,12 @@ Content-Type: application/json
 DELETE /api/permissions/999 HTTP/1.1
 Host: localhost:8080
 Authorization: Bearer <access_token>
+```
+
+```bash
+curl -X DELETE \
+  http://localhost:8080/api/permissions/999 \
+  -H "Authorization: Bearer <access_token>"
 ```
 
 **响应示例（200 OK）**
