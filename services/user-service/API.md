@@ -757,7 +757,7 @@ Authorization: Bearer <access_token>
 
 更新指定权限（字段均为可选）。
 
-**所需权限**: `permission:create`
+**所需权限**: `permission:update`
 
 **请求体**
 
@@ -804,7 +804,7 @@ Content-Type: application/json
 
 删除指定权限。
 
-**所需权限**: `permission:create`
+**所需权限**: `permission:delete`
 
 **请求示例**
 

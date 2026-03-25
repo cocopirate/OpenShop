@@ -598,7 +598,7 @@ Authorization: Bearer <access_token>
 Content-Type: application/json
 
 {
-  "desc": "超级管理员，拥有全部权限"
+  "desc": "运营人员（已更新描述）"
 }
 ```
 
@@ -608,7 +608,7 @@ Content-Type: application/json
 {
   "id": 2,
   "name": "operator",
-  "desc": "超级管理员，拥有全部权限",
+  "desc": "运营人员（已更新描述）",
   "created_at": "2024-01-02T00:00:00"
 }
 ```
@@ -798,7 +798,7 @@ Authorization: Bearer <access_token>
 
 更新权限。
 
-**所需权限**: `permission:create`
+**所需权限**: `permission:update`
 
 **请求体**
 
@@ -820,7 +820,7 @@ Authorization: Bearer <access_token>
 Content-Type: application/json
 
 {
-  "name": "超级权限（所有接口）"
+  "name": "查看所有报表"
 }
 ```
 
@@ -830,7 +830,7 @@ Content-Type: application/json
 {
   "id": 10,
   "code": "report:view",
-  "name": "超级权限（所有接口）",
+  "name": "查看所有报表",
   "type": "api",
   "method": "GET",
   "path": "/api/v1/reports",
@@ -845,7 +845,7 @@ Content-Type: application/json
 
 删除权限。
 
-**所需权限**: `permission:create`
+**所需权限**: `permission:delete`
 
 **请求示例**
 
