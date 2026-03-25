@@ -30,6 +30,7 @@
 | `/api/v1/promotions/**` | promotion-service:8007 |
 | `/api/v1/locations/**` | location-service:8008 |
 | `/api/v1/notifications/**` | notification-service:8009 |
+| `/api/v1/sms/**` | sms-service:8010 |
 
 ## 目录结构
 
