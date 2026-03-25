@@ -45,16 +45,16 @@ def _make_mock_redis(ok: bool = True):
 
 
 def _make_mock_user(user_id: int = 1, username: str = "admin", status: str = "active"):
-    """Create a mock user whose attributes serialize correctly via Pydantic."""
+    """Create a mock admin user whose attributes serialize correctly via Pydantic."""
 
-    class _MockUser:
+    class _MockAdminUser:
         pass
 
-    user = _MockUser()
+    user = _MockAdminUser()
     user.id = user_id
     user.username = username
     user.hashed_password = "$2b$12$placeholder"
-    user.status = status  # plain string – UserStatus is a str-enum so this works
+    user.status = status  # plain string – AdminUserStatus is a str-enum so this works
     user.created_at = datetime(2024, 1, 1, 0, 0, 0)
     user.roles = []
     return user
