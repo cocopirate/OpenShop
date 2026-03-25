@@ -3,4 +3,4 @@
 **/*.pyo
 **/.pytest_cache
 **/.env
-
+**/.idea
