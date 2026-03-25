@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from prometheus_client import make_asgi_app
 from sqlalchemy import text
 
+from app.api.v1.admin import admin_router
 from app.api.v1.router import router as v1_router
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal, engine
@@ -58,6 +59,7 @@ from app.core.tracing import configure_tracing
 configure_tracing(app)
 
 app.include_router(v1_router, prefix="/api/v1", tags=["sms"])
+app.include_router(admin_router, prefix="/api/v1", tags=["admin"])
 
 metrics_app = make_asgi_app()
 app.mount("/metrics", metrics_app)
