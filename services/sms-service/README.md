@@ -100,12 +100,14 @@ Readiness Probe 指向 `GET /health/ready`，Liveness Probe 指向 `GET /health`
 通过 `SMS_PROVIDER` 环境变量切换：
 - `aliyun`（默认）– 阿里云短信服务
 - `tencent` – 腾讯云短信
+- `chuanglan` – 创蓝云短信（253.com）
+
+支持通过 `SMS_PROVIDER_FALLBACK` 配置备用供应商，主供应商故障时自动切换（熔断器模式）。
 
 ## 依赖服务
 
-- notification-service（被调用）
+- notification-service（上游调用方）
 
 ## 端口
 
 - 服务端口: **8010**
-

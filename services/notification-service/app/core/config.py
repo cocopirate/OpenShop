@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     REDIS_URL: str
     KAFKA_BOOTSTRAP_SERVERS: str = "localhost:9092"
 
+    # Downstream capability services
+    SMS_SERVICE_URL: str = "http://sms-service:8010"
+
     class Config:
         env_file = ".env"
 
