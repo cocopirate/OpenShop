@@ -10,25 +10,25 @@ from sqlalchemy.orm import selectinload
 
 from app.core.security import hash_password
 from app.models.role import Role
-from app.models.user import User, UserStatus
-from app.schemas.user import UserCreate, UserUpdate
+from app.models.user import AdminUser, AdminUserStatus
+from app.schemas.user import AdminUserCreate, AdminUserUpdate
 
 
-async def get_users(db: AsyncSession) -> list[User]:
-    result = await db.execute(select(User))
+async def get_users(db: AsyncSession) -> list[AdminUser]:
+    result = await db.execute(select(AdminUser))
     return list(result.scalars().all())
 
 
-async def get_user(db: AsyncSession, user_id: int) -> Optional[User]:
-    result = await db.execute(select(User).where(User.id == user_id))
+async def get_user(db: AsyncSession, user_id: int) -> Optional[AdminUser]:
+    result = await db.execute(select(AdminUser).where(AdminUser.id == user_id))
     return result.scalar_one_or_none()
 
 
-async def create_user(db: AsyncSession, data: UserCreate) -> User:
-    user = User(
+async def create_user(db: AsyncSession, data: AdminUserCreate) -> AdminUser:
+    user = AdminUser(
         username=data.username,
         hashed_password=hash_password(data.password),
-        status=UserStatus(data.status),
+        status=AdminUserStatus(data.status),
     )
     db.add(user)
     await db.flush()
@@ -36,14 +36,14 @@ async def create_user(db: AsyncSession, data: UserCreate) -> User:
     return user
 
 
-async def update_user(db: AsyncSession, user_id: int, data: UserUpdate) -> Optional[User]:
+async def update_user(db: AsyncSession, user_id: int, data: AdminUserUpdate) -> Optional[AdminUser]:
     user = await get_user(db, user_id)
     if user is None:
         return None
     if data.username is not None:
         user.username = data.username
     if data.status is not None:
-        user.status = UserStatus(data.status)
+        user.status = AdminUserStatus(data.status)
     await db.flush()
     await db.refresh(user)
     return user
@@ -60,11 +60,11 @@ async def delete_user(db: AsyncSession, user_id: int) -> bool:
 
 async def update_user_status(
     db: AsyncSession, redis: Redis, user_id: int, status: str
-) -> Optional[User]:
+) -> Optional[AdminUser]:
     user = await get_user(db, user_id)
     if user is None:
         return None
-    user.status = UserStatus(status)
+    user.status = AdminUserStatus(status)
     await db.flush()
     await db.refresh(user)
     await redis.set(f"user_status:{user_id}", status, ex=86400)
@@ -73,11 +73,11 @@ async def update_user_status(
 
 async def assign_roles_to_user(
     db: AsyncSession, redis: Redis, user_id: int, role_ids: list[int]
-) -> Optional[User]:
+) -> Optional[AdminUser]:
     result = await db.execute(
-        select(User)
-        .where(User.id == user_id)
-        .options(selectinload(User.roles).selectinload(Role.permissions))
+        select(AdminUser)
+        .where(AdminUser.id == user_id)
+        .options(selectinload(AdminUser.roles).selectinload(Role.permissions))
     )
     user = result.scalar_one_or_none()
     if user is None:
@@ -105,9 +105,9 @@ async def assign_roles_to_user(
 
 async def get_user_permissions(db: AsyncSession, user_id: int) -> list[str]:
     result = await db.execute(
-        select(User)
-        .where(User.id == user_id)
-        .options(selectinload(User.roles).selectinload(Role.permissions))
+        select(AdminUser)
+        .where(AdminUser.id == user_id)
+        .options(selectinload(AdminUser.roles).selectinload(Role.permissions))
     )
     user = result.scalar_one_or_none()
     if user is None:

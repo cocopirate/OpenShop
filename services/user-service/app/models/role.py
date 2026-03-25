@@ -10,7 +10,7 @@ from app.core.database import Base
 
 if TYPE_CHECKING:
     from app.models.permission import Permission
-    from app.models.user import User
+    from app.models.user import AdminUser
 
 role_permission = Table(
     "role_permissions",
@@ -38,6 +38,6 @@ class Role(Base):
     permissions: Mapped[list[Permission]] = relationship(
         "Permission", secondary="role_permissions", back_populates="roles"
     )
-    users: Mapped[list[User]] = relationship(
-        "User", secondary="user_roles", back_populates="roles"
+    admin_users: Mapped[list[AdminUser]] = relationship(
+        "AdminUser", secondary="admin_user_roles", back_populates="roles"
     )
