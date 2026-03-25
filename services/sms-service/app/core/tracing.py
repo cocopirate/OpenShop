@@ -1,8 +1,10 @@
 """OpenTelemetry tracing configuration for sms-service."""
+from __future__ import annotations
+
 from app.core.config import settings
 
 
-def configure_tracing(app) -> None:
+def configure_tracing(app: "FastAPI") -> None:  # type: ignore[name-defined]  # noqa: F821
     """Configure OpenTelemetry tracing if OTEL_ENDPOINT is set."""
     if not settings.OTEL_ENDPOINT:
         return

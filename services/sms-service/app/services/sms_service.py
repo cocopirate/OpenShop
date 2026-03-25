@@ -17,6 +17,7 @@ from app.providers.factory import get_provider, record_provider_failure, record_
 
 log = structlog.get_logger(__name__)
 
+_DIGITS = "0123456789"
 _IDEMPOTENCY_TTL = 86400  # 24 hours
 
 
@@ -117,7 +118,7 @@ async def send_verification_code(
     template_id: str,
 ) -> str:
     """Generate a 6-digit OTP, cache in Redis, and send via SMS."""
-    code = "".join(secrets.choice("0123456789") for _ in range(6))
+    code = "".join(secrets.choice(_DIGITS) for _ in range(6))
     redis = get_redis()
     key = _make_verify_key(phone)
     await redis.set(key, code, ex=settings.SMS_CODE_TTL)
