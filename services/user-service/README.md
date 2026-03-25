@@ -225,16 +225,23 @@ user-service/
 ## 快速开始 / Quick Start
 
 ```bash
-# 1. 安装依赖
-pip install -r requirements.txt
+# 1. 安装 uv（如未安装）
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# 2. 复制环境变量
+# 2. 创建虚拟环境 + 安装依赖（一步完成）
+uv venv --python 3.11
+uv pip install -r requirements.txt
+
+# 3. 激活虚拟环境
+source .venv/bin/activate
+
+# 4. 配置环境变量
 cp .env.example .env
 
-# 3. 执行数据库迁移
+# 5. 执行数据库迁移
 alembic upgrade head
 
-# 4. 启动服务
+# 6. 启动服务
 uvicorn app.main:app --reload --port 8001
 ```
 

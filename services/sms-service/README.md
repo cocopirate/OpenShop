@@ -98,14 +98,23 @@ alembic revision --autogenerate -m "描述"
 # 启动依赖（PostgreSQL + Redis）
 docker-compose -f ../../infra/docker-compose.yml up -d postgres redis
 
-# 安装依赖（推荐使用 uv）
-uv pip install -r requirements.txt
-# 或：pip install -r requirements.txt
+# 1. 安装 uv（如未安装）
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# 应用数据库迁移
+# 2. 创建虚拟环境 + 安装依赖
+uv venv --python 3.11
+uv pip install -r requirements.txt
+
+# 3. 激活虚拟环境
+source .venv/bin/activate
+
+# 4. 配置环境变量
+cp .env.example .env
+
+# 5. 应用数据库迁移
 alembic upgrade head
 
-# 启动服务
+# 6. 启动服务
 uvicorn app.main:app --reload --port 8010
 ```
 
