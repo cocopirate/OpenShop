@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -10,12 +10,15 @@ class SmsSendRequest(BaseModel):
     phone: str = Field(..., description="E.164 or local format phone number")
     template_id: str = Field(..., description="SMS template identifier")
     params: dict = Field(default_factory=dict, description="Template variable substitutions")
+    request_id: Optional[str] = Field(None, max_length=64, description="Client-provided idempotency key (max 64 chars)")
 
 
 class SmsSendResponse(BaseModel):
     message_id: str
+    request_id: Optional[str] = None
     status: SmsStatus
     provider: str
+    phone_masked: str
 
 
 class SmsVerifyRequest(BaseModel):
@@ -30,13 +33,30 @@ class SmsVerifyResponse(BaseModel):
 
 class SmsRecordOut(BaseModel):
     id: int
-    phone: str
+    request_id: Optional[str] = None
+    phone_masked: str
     template_id: str
     provider: str
     provider_message_id: Optional[str] = None
     status: SmsStatus
+    error_code: Optional[str] = None
     error_message: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class SmsRecordListResponse(BaseModel):
+    total: int
+    page: int
+    size: int
+    items: List[SmsRecordOut]
+
+
+class RateLimitErrorResponse(BaseModel):
+    error_code: str = "RATE_LIMIT_EXCEEDED"
+    message: str
+    retry_after: int  # seconds
+    limit: int
+    window: int  # seconds

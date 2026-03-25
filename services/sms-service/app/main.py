@@ -1,20 +1,51 @@
+import asyncio
 from contextlib import asynccontextmanager
 
+import structlog
 from fastapi import FastAPI
+from prometheus_client import make_asgi_app
 from sqlalchemy import text
 
 from app.api.v1.router import router as v1_router
 from app.core.config import settings
-from app.core.database import engine
+from app.core.database import AsyncSessionLocal, engine
+from app.core.logging import configure_logging
 from app.core.redis import close_redis, get_redis, init_redis
+
+configure_logging()
+log = structlog.get_logger(__name__)
+
+_cleanup_task: asyncio.Task | None = None
+
+
+async def _periodic_cleanup() -> None:
+    """Run record cleanup every 24 hours."""
+    from app.services.sms_service import cleanup_old_records
+    while True:
+        await asyncio.sleep(86400)
+        if settings.SMS_RECORDS_RETENTION_DAYS > 0:
+            try:
+                async with AsyncSessionLocal() as session:
+                    count = await cleanup_old_records(session)
+                    await session.commit()
+                    log.info("sms.cleanup.done", deleted=count)
+            except Exception as exc:
+                log.error("sms.cleanup.error", error=str(exc))
 
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
+    global _cleanup_task
+    configure_logging()
     await init_redis()
+    _cleanup_task = asyncio.create_task(_periodic_cleanup())
+    log.info("sms_service.started", version="1.0.0", provider=settings.SMS_PROVIDER)
     yield
+    if _cleanup_task:
+        _cleanup_task.cancel()
     await close_redis()
     await engine.dispose()
+    log.info("sms_service.stopped")
 
 
 app = FastAPI(
@@ -23,7 +54,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+from app.core.tracing import configure_tracing
+configure_tracing(app)
+
 app.include_router(v1_router, prefix="/api/v1", tags=["sms"])
+
+metrics_app = make_asgi_app()
+app.mount("/metrics", metrics_app)
 
 
 @app.get("/health", tags=["health"], summary="服务健康检查（含 DB / Redis 连通性）")
@@ -33,7 +70,6 @@ async def health_check():
     redis_ok = False
     errors: dict = {}
 
-    # --- PostgreSQL ---
     try:
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
@@ -41,7 +77,6 @@ async def health_check():
     except Exception as exc:
         errors["database"] = str(exc)
 
-    # --- Redis ---
     try:
         redis = get_redis()
         await redis.ping()
