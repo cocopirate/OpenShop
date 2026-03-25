@@ -43,9 +43,9 @@ User ──(user_roles)──▶ Role ──(role_permissions)──▶ Permissi
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| id | UUID | 主键 |
-| username | VARCHAR | 唯一用户名 |
-| hashed_password | VARCHAR | bcrypt 哈希密码 |
+| id | BigInteger | 主键（自增） |
+| username | VARCHAR(64) | 唯一用户名 |
+| hashed_password | VARCHAR(256) | bcrypt 哈希密码 |
 | status | ENUM | active / disabled |
 | created_at | TIMESTAMP | 创建时间 |
 
@@ -53,8 +53,8 @@ User ──(user_roles)──▶ Role ──(role_permissions)──▶ Permissi
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| id | UUID | 主键 |
-| name | VARCHAR | 角色名称（唯一） |
+| id | BigInteger | 主键（自增） |
+| name | VARCHAR(64) | 角色名称（唯一） |
 | desc | TEXT | 角色描述 |
 | created_at | TIMESTAMP | 创建时间 |
 
@@ -62,19 +62,19 @@ User ──(user_roles)──▶ Role ──(role_permissions)──▶ Permissi
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| id | UUID | 主键 |
-| code | VARCHAR | 权限码（唯一） |
-| name | VARCHAR | 权限名称 |
-| type | ENUM | menu / button / api |
-| method | VARCHAR | HTTP 方法（GET/POST…） |
-| path | VARCHAR | 路由路径 |
-| parent_id | UUID | 父权限 ID（可空） |
+| id | BigInteger | 主键（自增） |
+| code | VARCHAR(128) | 权限码（唯一） |
+| name | VARCHAR(64) | 权限名称 |
+| type | ENUM | menu / api |
+| method | VARCHAR(16) | HTTP 方法（GET/POST…） |
+| path | VARCHAR(256) | 路由路径 |
+| parent_id | BigInteger | 父权限 ID（可空） |
 | created_at | TIMESTAMP | 创建时间 |
 
 ### 关联表
 
-- **user_roles** — (user_id, role_id)
-- **role_permissions** — (role_id, permission_id)
+- **user_roles** — (user_id: BigInteger, role_id: BigInteger)
+- **role_permissions** — (role_id: BigInteger, permission_id: BigInteger)
 
 ---
 
