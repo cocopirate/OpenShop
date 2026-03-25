@@ -210,23 +210,28 @@ curl -X POST \
 
 ```json
 {
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiI3YzE4MWQ3Yi00MjI0LTQxODktOTEzMi1mOWE4ZmM1OGEzNzMiLCJ1c2VybmFtZSI6ImFkbWluIiwicm9sZXMiOlsic3VwZXJhZG1pbiJdLCJwZXJtaXNzaW9ucyI6WyIqIl0sInN0YXR1cyI6ImFjdGl2ZSIsInZlciI6MCwiZXhwIjoxNzAwMDAxODAwfQ.example",
-  "token_type": "bearer"
+  "code": 0,
+  "message": "success",
+  "data": {
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiI3YzE4MWQ3Yi00MjI0LTQxODktOTEzMi1mOWE4ZmM1OGEzNzMiLCJ1c2VybmFtZSI6ImFkbWluIiwicm9sZXMiOlsic3VwZXJhZG1pbiJdLCJwZXJtaXNzaW9ucyI6WyIqIl0sInN0YXR1cyI6ImFjdGl2ZSIsInZlciI6MCwiZXhwIjoxNzAwMDAxODAwfQ.example",
+    "token_type": "bearer"
+  },
+  "request_id": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
 **错误响应**
 
-| 状态码 | 说明 |
-|--------|------|
-| 401 | 用户名或密码错误 |
-| 403 | 账号已被禁用 |
+| 状态码 | 错误码 | 说明 |
+|--------|--------|------|
+| 401 | 40003 | 用户名或密码错误 |
+| 403 | 40004 | 账号已被禁用 |
 
 ---
 
 ### POST /api/auth/logout
 
-登出当前账号。
+登出当前账号。调用后 Redis 中的权限版本号自增，该用户持有的所有旧 Token 立即失效。
 
 **需要认证**
 
@@ -248,7 +253,12 @@ curl -X POST \
 
 ```json
 {
-  "message": "logged out"
+  "code": 0,
+  "message": "success",
+  "data": {
+    "message": "logged out"
+  },
+  "request_id": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
@@ -278,14 +288,19 @@ curl http://localhost:8080/api/users \
 **响应示例（200 OK）**
 
 ```json
-[
-  {
-    "public_id": "7c181d7b-4224-4189-9132-f9a8fc58a373",
-    "username": "admin",
-    "status": "active",
-    "created_at": "2024-01-01T00:00:00"
-  }
-]
+{
+  "code": 0,
+  "message": "success",
+  "data": [
+    {
+      "public_id": "7c181d7b-4224-4189-9132-f9a8fc58a373",
+      "username": "admin",
+      "status": "active",
+      "created_at": "2024-01-01T00:00:00"
+    }
+  ],
+  "request_id": "550e8400-e29b-41d4-a716-446655440000"
+}
 ```
 
 ---
@@ -331,10 +346,15 @@ curl -X POST \
 
 ```json
 {
-  "public_id": "a1b2c3d4-0000-0000-0000-000000000001",
-  "username": "operator01",
-  "status": "active",
-  "created_at": "2024-06-01T10:00:00"
+  "code": 0,
+  "message": "success",
+  "data": {
+    "public_id": "a1b2c3d4-0000-0000-0000-000000000001",
+    "username": "operator01",
+    "status": "active",
+    "created_at": "2024-06-01T10:00:00"
+  },
+  "request_id": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
@@ -363,10 +383,15 @@ curl http://localhost:8080/api/users/7c181d7b-4224-4189-9132-f9a8fc58a373 \
 
 ```json
 {
-  "public_id": "7c181d7b-4224-4189-9132-f9a8fc58a373",
-  "username": "admin",
-  "status": "active",
-  "created_at": "2024-01-01T00:00:00"
+  "code": 0,
+  "message": "success",
+  "data": {
+    "public_id": "7c181d7b-4224-4189-9132-f9a8fc58a373",
+    "username": "admin",
+    "status": "active",
+    "created_at": "2024-01-01T00:00:00"
+  },
+  "request_id": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
@@ -410,10 +435,15 @@ curl -X PUT \
 
 ```json
 {
-  "public_id": "7c181d7b-4224-4189-9132-f9a8fc58a373",
-  "username": "admin_renamed",
-  "status": "active",
-  "created_at": "2024-01-01T00:00:00"
+  "code": 0,
+  "message": "success",
+  "data": {
+    "public_id": "7c181d7b-4224-4189-9132-f9a8fc58a373",
+    "username": "admin_renamed",
+    "status": "active",
+    "created_at": "2024-01-01T00:00:00"
+  },
+  "request_id": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
@@ -443,7 +473,12 @@ curl -X DELETE \
 
 ```json
 {
-  "message": "deleted"
+  "code": 0,
+  "message": "success",
+  "data": {
+    "message": "deleted"
+  },
+  "request_id": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
@@ -486,10 +521,15 @@ curl -X POST \
 
 ```json
 {
-  "public_id": "a1b2c3d4-0000-0000-0000-000000000001",
-  "username": "operator01",
-  "status": "disabled",
-  "created_at": "2024-06-01T10:00:00"
+  "code": 0,
+  "message": "success",
+  "data": {
+    "public_id": "a1b2c3d4-0000-0000-0000-000000000001",
+    "username": "operator01",
+    "status": "disabled",
+    "created_at": "2024-06-01T10:00:00"
+  },
+  "request_id": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
@@ -532,10 +572,15 @@ curl -X POST \
 
 ```json
 {
-  "public_id": "a1b2c3d4-0000-0000-0000-000000000001",
-  "username": "operator01",
-  "status": "active",
-  "created_at": "2024-06-01T10:00:00"
+  "code": 0,
+  "message": "success",
+  "data": {
+    "public_id": "a1b2c3d4-0000-0000-0000-000000000001",
+    "username": "operator01",
+    "status": "active",
+    "created_at": "2024-06-01T10:00:00"
+  },
+  "request_id": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
@@ -565,20 +610,25 @@ curl http://localhost:8080/api/roles \
 **响应示例（200 OK）**
 
 ```json
-[
-  {
-    "id": 1,
-    "name": "superadmin",
-    "desc": "超级管理员，拥有全部权限",
-    "created_at": "2024-01-01T00:00:00"
-  },
-  {
-    "id": 2,
-    "name": "operator",
-    "desc": "运营人员",
-    "created_at": "2024-01-02T00:00:00"
-  }
-]
+{
+  "code": 0,
+  "message": "success",
+  "data": [
+    {
+      "id": 1,
+      "name": "superadmin",
+      "desc": "超级管理员，拥有全部权限",
+      "created_at": "2024-01-01T00:00:00"
+    },
+    {
+      "id": 2,
+      "name": "operator",
+      "desc": "运营人员",
+      "created_at": "2024-01-02T00:00:00"
+    }
+  ],
+  "request_id": "550e8400-e29b-41d4-a716-446655440000"
+}
 ```
 
 ---
@@ -622,10 +672,15 @@ curl -X POST \
 
 ```json
 {
-  "id": 2,
-  "name": "operator",
-  "desc": "运营人员",
-  "created_at": "2024-06-01T10:00:00"
+  "code": 0,
+  "message": "success",
+  "data": {
+    "id": 2,
+    "name": "operator",
+    "desc": "运营人员",
+    "created_at": "2024-06-01T10:00:00"
+  },
+  "request_id": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
@@ -654,10 +709,15 @@ curl http://localhost:8080/api/roles/1 \
 
 ```json
 {
-  "id": 1,
-  "name": "superadmin",
-  "desc": "超级管理员，拥有全部权限",
-  "created_at": "2024-01-01T00:00:00"
+  "code": 0,
+  "message": "success",
+  "data": {
+    "id": 1,
+    "name": "superadmin",
+    "desc": "超级管理员，拥有全部权限",
+    "created_at": "2024-01-01T00:00:00"
+  },
+  "request_id": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
@@ -701,10 +761,15 @@ curl -X PUT \
 
 ```json
 {
-  "id": 2,
-  "name": "operator",
-  "desc": "运营人员（已更新描述）",
-  "created_at": "2024-01-02T00:00:00"
+  "code": 0,
+  "message": "success",
+  "data": {
+    "id": 2,
+    "name": "operator",
+    "desc": "运营人员（已更新描述）",
+    "created_at": "2024-01-02T00:00:00"
+  },
+  "request_id": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
@@ -734,7 +799,12 @@ curl -X DELETE \
 
 ```json
 {
-  "message": "deleted"
+  "code": 0,
+  "message": "success",
+  "data": {
+    "message": "deleted"
+  },
+  "request_id": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
@@ -777,10 +847,15 @@ curl -X POST \
 
 ```json
 {
-  "id": 2,
-  "name": "operator",
-  "desc": "运营人员",
-  "created_at": "2024-01-02T00:00:00"
+  "code": 0,
+  "message": "success",
+  "data": {
+    "id": 2,
+    "name": "operator",
+    "desc": "运营人员",
+    "created_at": "2024-01-02T00:00:00"
+  },
+  "request_id": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
@@ -810,18 +885,23 @@ curl http://localhost:8080/api/permissions \
 **响应示例（200 OK）**
 
 ```json
-[
-  {
-    "id": 1,
-    "code": "user:list",
-    "name": "查看管理员用户",
-    "type": "api",
-    "method": "GET",
-    "path": "/api/users",
-    "parent_id": null,
-    "created_at": "2024-01-01T00:00:00"
-  }
-]
+{
+  "code": 0,
+  "message": "success",
+  "data": [
+    {
+      "id": 1,
+      "code": "user:list",
+      "name": "查看管理员用户",
+      "type": "api",
+      "method": "GET",
+      "path": "/api/users",
+      "parent_id": null,
+      "created_at": "2024-01-01T00:00:00"
+    }
+  ],
+  "request_id": "550e8400-e29b-41d4-a716-446655440000"
+}
 ```
 
 ---
@@ -872,14 +952,19 @@ curl -X POST \
 
 ```json
 {
-  "id": 10,
-  "code": "report:view",
-  "name": "查看报表",
-  "type": "api",
-  "method": "GET",
-  "path": "/api/v1/reports",
-  "parent_id": null,
-  "created_at": "2024-06-01T10:00:00"
+  "code": 0,
+  "message": "success",
+  "data": {
+    "id": 10,
+    "code": "report:view",
+    "name": "查看报表",
+    "type": "api",
+    "method": "GET",
+    "path": "/api/v1/reports",
+    "parent_id": null,
+    "created_at": "2024-06-01T10:00:00"
+  },
+  "request_id": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
@@ -908,14 +993,19 @@ curl http://localhost:8080/api/permissions/1 \
 
 ```json
 {
-  "id": 1,
-  "code": "user:list",
-  "name": "查看管理员用户",
-  "type": "api",
-  "method": "GET",
-  "path": "/api/users",
-  "parent_id": null,
-  "created_at": "2024-01-01T00:00:00"
+  "code": 0,
+  "message": "success",
+  "data": {
+    "id": 1,
+    "code": "user:list",
+    "name": "查看管理员用户",
+    "type": "api",
+    "method": "GET",
+    "path": "/api/users",
+    "parent_id": null,
+    "created_at": "2024-01-01T00:00:00"
+  },
+  "request_id": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
@@ -963,14 +1053,19 @@ curl -X PUT \
 
 ```json
 {
-  "id": 10,
-  "code": "report:view",
-  "name": "查看所有报表",
-  "type": "api",
-  "method": "GET",
-  "path": "/api/v1/reports",
-  "parent_id": null,
-  "created_at": "2024-06-01T10:00:00"
+  "code": 0,
+  "message": "success",
+  "data": {
+    "id": 10,
+    "code": "report:view",
+    "name": "查看所有报表",
+    "type": "api",
+    "method": "GET",
+    "path": "/api/v1/reports",
+    "parent_id": null,
+    "created_at": "2024-06-01T10:00:00"
+  },
+  "request_id": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
@@ -1000,7 +1095,12 @@ curl -X DELETE \
 
 ```json
 {
-  "message": "deleted"
+  "code": 0,
+  "message": "success",
+  "data": {
+    "message": "deleted"
+  },
+  "request_id": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
@@ -1008,21 +1108,24 @@ curl -X DELETE \
 
 ## 通用错误码
 
-| 状态码 | 说明 |
-|--------|------|
-| 400 | 请求参数校验失败 |
-| 401 | 未认证、Token 无效/过期/被撤销，或账号已禁用 |
-| 403 | 缺少所需权限 |
-| 404 | 路径无匹配的上游服务，或资源不存在 |
-| 422 | 请求体格式错误 |
-| 503 | 上游服务不可用（连接失败） |
-| 504 | 上游服务超时（默认 30s） |
+| 状态码 | 错误码 | 说明 |
+|--------|--------|------|
+| 400 | 40011 | 请求参数校验失败 |
+| 401 | 40007 | 未认证、Token 无效/过期/被撤销，或账号已禁用 |
+| 403 | 40010 | 缺少所需权限 |
+| 404 | 50003 | 路径无匹配的上游服务，或资源不存在 |
+| 422 | 40011 | 请求体格式错误 |
+| 503 | 50001 | 上游服务不可用（连接失败） |
+| 504 | 50002 | 上游服务超时（默认 30s） |
 
 **401 响应示例（Token 被撤销）**
 
 ```json
 {
-  "detail": "Token invalidated, please login again"
+  "code": 40007,
+  "message": "Token invalidated, please login again",
+  "data": null,
+  "request_id": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
@@ -1030,7 +1133,10 @@ curl -X DELETE \
 
 ```json
 {
-  "detail": "User is disabled"
+  "code": 40007,
+  "message": "User is disabled",
+  "data": null,
+  "request_id": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
@@ -1038,7 +1144,10 @@ curl -X DELETE \
 
 ```json
 {
-  "detail": "Missing permission: user:create"
+  "code": 40010,
+  "message": "Missing permission: user:create",
+  "data": null,
+  "request_id": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
@@ -1046,6 +1155,9 @@ curl -X DELETE \
 
 ```json
 {
-  "detail": "Upstream service unavailable"
+  "code": 50001,
+  "message": "Upstream service unavailable",
+  "data": null,
+  "request_id": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```

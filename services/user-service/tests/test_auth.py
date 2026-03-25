@@ -344,3 +344,102 @@ async def test_assign_roles():
     data = resp.json()
     assert data["code"] == 0
     assert data["data"]["public_id"] == str(_USER_UUID)
+
+
+@pytest.mark.asyncio
+async def test_logout_success():
+    """POST /api/auth/logout invalidates token via Redis version bump."""
+    from httpx import ASGITransport, AsyncClient
+
+    from app.core.security import create_access_token
+
+    mock_engine = _make_mock_engine(ok=True)
+    mock_redis = _make_mock_redis(ok=True)
+
+    token = create_access_token(
+        data={
+            "uid": str(_USER_UUID),
+            "username": "admin",
+            "roles": ["superadmin"],
+            "permissions": ["*"],
+            "status": "active",
+            "ver": 0,
+        }
+    )
+
+    with (
+        patch("app.main.engine", mock_engine),
+        patch("app.main.get_redis", return_value=mock_redis),
+        patch("app.core.redis.init_redis", new_callable=AsyncMock),
+        patch("app.core.redis.close_redis", new_callable=AsyncMock),
+        patch("app.api.v1.auth.get_redis", return_value=mock_redis),
+    ):
+        from app.main import app
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.post(
+                "/api/auth/logout",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["code"] == 0
+    assert data["data"]["message"] == "logged out"
+    mock_redis.incr.assert_called_once_with(f"user_perm_ver:{_USER_UUID}")
+    mock_redis.expire.assert_called_once_with(f"user_perm_ver:{_USER_UUID}", 86400)
+
+
+@pytest.mark.asyncio
+async def test_logout_missing_token():
+    """POST /api/auth/logout returns 401 when no Authorization header."""
+    from httpx import ASGITransport, AsyncClient
+
+    mock_engine = _make_mock_engine(ok=True)
+    mock_redis = _make_mock_redis(ok=True)
+
+    with (
+        patch("app.main.engine", mock_engine),
+        patch("app.main.get_redis", return_value=mock_redis),
+        patch("app.core.redis.init_redis", new_callable=AsyncMock),
+        patch("app.core.redis.close_redis", new_callable=AsyncMock),
+        patch("app.api.v1.auth.get_redis", return_value=mock_redis),
+    ):
+        from app.main import app
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.post("/api/auth/logout")
+
+    assert resp.status_code == 401
+    data = resp.json()
+    assert data["code"] != 0
+    assert data["data"] is None
+
+
+@pytest.mark.asyncio
+async def test_logout_invalid_token():
+    """POST /api/auth/logout returns 401 for an invalid/expired token."""
+    from httpx import ASGITransport, AsyncClient
+
+    mock_engine = _make_mock_engine(ok=True)
+    mock_redis = _make_mock_redis(ok=True)
+
+    with (
+        patch("app.main.engine", mock_engine),
+        patch("app.main.get_redis", return_value=mock_redis),
+        patch("app.core.redis.init_redis", new_callable=AsyncMock),
+        patch("app.core.redis.close_redis", new_callable=AsyncMock),
+        patch("app.api.v1.auth.get_redis", return_value=mock_redis),
+    ):
+        from app.main import app
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.post(
+                "/api/auth/logout",
+                headers={"Authorization": "Bearer not.a.valid.token"},
+            )
+
+    assert resp.status_code == 401
+    data = resp.json()
+    assert data["code"] != 0
+    assert data["data"] is None
