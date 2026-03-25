@@ -2,10 +2,10 @@
 
 ## 核心聚合根
 
-### User（用户）
+### Customer（客户）
 ```
-User
-├── user_id: UUID (PK)
+Customer
+├── customer_id: UUID (PK)
 ├── phone: str (unique)
 ├── email: Optional[str]
 ├── nickname: str
@@ -18,7 +18,7 @@ User
 ```
 Merchant
 ├── merchant_id: UUID (PK)
-├── user_id: UUID (FK -> User)
+├── customer_id: UUID (FK -> Customer)
 ├── business_name: str
 ├── license_number: str
 ├── status: Enum(pending, approved, rejected, suspended)
@@ -48,7 +48,7 @@ SKU
 ```
 Order
 ├── order_id: UUID (PK)
-├── user_id: UUID (FK -> User)
+├── customer_id: UUID (FK -> Customer)
 ├── status: Enum(pending_payment, paid, shipped, completed, cancelled)
 ├── total_amount: Decimal
 ├── items: List[OrderItem]

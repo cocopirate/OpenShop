@@ -11,11 +11,11 @@ from sqlalchemy.orm import selectinload
 from app.core.config import settings
 from app.core.security import create_access_token, verify_password
 from app.models.role import Role
-from app.models.user import User
+from app.models.user import AdminUser
 
 
-async def authenticate_user(db: AsyncSession, username: str, password: str) -> Optional[User]:
-    result = await db.execute(select(User).where(User.username == username))
+async def authenticate_user(db: AsyncSession, username: str, password: str) -> Optional[AdminUser]:
+    result = await db.execute(select(AdminUser).where(AdminUser.username == username))
     user = result.scalar_one_or_none()
     if user is None:
         return None
@@ -24,12 +24,12 @@ async def authenticate_user(db: AsyncSession, username: str, password: str) -> O
     return user
 
 
-async def create_token_for_user(db: AsyncSession, redis: Redis, user: User) -> str:
+async def create_token_for_user(db: AsyncSession, redis: Redis, user: AdminUser) -> str:
     """Build JWT payload, cache user data in Redis, return token."""
     result = await db.execute(
-        select(User)
-        .where(User.id == user.id)
-        .options(selectinload(User.roles).selectinload(Role.permissions))
+        select(AdminUser)
+        .where(AdminUser.id == user.id)
+        .options(selectinload(AdminUser.roles).selectinload(Role.permissions))
     )
     loaded = result.scalar_one_or_none()
 

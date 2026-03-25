@@ -46,18 +46,18 @@
 ### 实体关系
 
 ```
-User ──┐
-       ├──(user_roles)──▶ Role ──(role_permissions)──▶ Permission
-       └── status (active/disabled)
+AdminUser ──┐
+        ├──(admin_user_roles)──▶ Role ──(role_permissions)──▶ Permission
+        └── status (active/disabled)
 ```
 
 ### 数据表定义
 
-#### users
+#### admin_users
 
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
-| id | BigInteger | PK, 自增 | 用户 ID |
+| id | BigInteger | PK, 自增 | 管理员用户 ID |
 | username | VARCHAR(64) | UNIQUE, NOT NULL | 登录用户名 |
 | hashed_password | VARCHAR(256) | NOT NULL | bcrypt 哈希密码 |
 | status | ENUM('active','disabled') | DEFAULT 'active' | 账号状态 |
@@ -85,11 +85,11 @@ User ──┐
 | parent_id | BigInteger | FK → permissions.id | 父权限（树形结构） |
 | created_at | TIMESTAMP | DEFAULT now() | 创建时间 |
 
-#### user_roles（关联表）
+#### admin_user_roles（关联表）
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| user_id | BigInteger FK | 用户 ID |
+| admin_user_id | BigInteger FK | 管理员用户 ID |
 | role_id | BigInteger FK | 角色 ID |
 
 #### role_permissions（关联表）
@@ -174,28 +174,28 @@ async def auth_check(request, token):
 DB: 更新 role_permissions
   │
   ▼
-对该角色下所有用户：
+对该角色下所有管理员用户：
   redis.incr("user_perm_ver:{uid}")      # 版本号 +1
   redis.delete("user_permissions:{uid}") # 清除缓存
   │
   ▼
-用户下次请求 → Gateway ver 校验失败 → 401 → 重新登录
+管理员用户下次请求 → Gateway ver 校验失败 → 401 → 重新登录
 新 Token 携带最新权限版本和权限列表
 ```
 
-### 用户禁用流程
+### 管理员用户禁用流程
 
 ```
 POST /api/users/{id}/status  {"status": "disabled"}
   │
   ▼
-DB: UPDATE users SET status='disabled'
+DB: UPDATE admin_users SET status='disabled'
   │
   ▼
 Redis: SET user_status:{uid} "disabled"
   │
   ▼
-该用户所有在线会话下次请求 → 401（立即生效，无需等 Token 过期）
+该管理员用户所有在线会话下次请求 → 401（立即生效，无需等 Token 过期）
 ```
 
 ---
@@ -209,16 +209,16 @@ Redis: SET user_status:{uid} "disabled"
 | POST | `/api/auth/login` | `{username, password}` | `{token, expires_in}` | 登录获取 JWT |
 | POST | `/api/auth/logout` | — | `{message}` | 登出，清理 Redis 状态 |
 
-### 用户模块 `/api/users`
+### 管理员用户模块 `/api/users`
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/users` | 获取用户列表（分页、搜索） |
-| POST | `/api/users` | 创建用户 |
-| GET | `/api/users/{id}` | 获取用户详情（含角色） |
-| PUT | `/api/users/{id}` | 更新用户基本信息 |
-| DELETE | `/api/users/{id}` | 删除用户 |
-| POST | `/api/users/{id}/status` | 修改用户状态（active/disabled） |
+| GET | `/api/users` | 获取管理员用户列表（分页、搜索） |
+| POST | `/api/users` | 创建管理员用户 |
+| GET | `/api/users/{id}` | 获取管理员用户详情（含角色） |
+| PUT | `/api/users/{id}` | 更新管理员用户基本信息 |
+| DELETE | `/api/users/{id}` | 删除管理员用户 |
+| POST | `/api/users/{id}/status` | 修改管理员用户状态（active/disabled） |
 | POST | `/api/users/{id}/roles` | 覆盖分配角色列表 |
 
 ### 角色模块 `/api/roles`
@@ -291,7 +291,7 @@ Redis: SET user_status:{uid} "disabled"
 
 ### 多租户
 
-在 User / Role / Permission 表增加 `tenant_id` 字段，所有查询默认过滤当前租户，实现租户间数据隔离。
+在 AdminUser / Role / Permission 表增加 `tenant_id` 字段，所有查询默认过滤当前租户，实现租户间数据隔离。
 
 ### 超级管理员
 

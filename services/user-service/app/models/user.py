@@ -12,32 +12,32 @@ from app.core.database import Base
 if TYPE_CHECKING:
     from app.models.role import Role
 
-user_role = Table(
-    "user_roles",
+admin_user_role = Table(
+    "admin_user_roles",
     Base.metadata,
-    Column("user_id", BigInteger, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column("admin_user_id", BigInteger, ForeignKey("admin_users.id", ondelete="CASCADE"), primary_key=True),
     Column("role_id", BigInteger, ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True),
 )
 
 
-class UserStatus(str, enum.Enum):
+class AdminUserStatus(str, enum.Enum):
     active = "active"
     disabled = "disabled"
 
 
-class User(Base):
-    __tablename__ = "users"
+class AdminUser(Base):
+    __tablename__ = "admin_users"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     username: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
     hashed_password: Mapped[str] = mapped_column(String(256), nullable=False)
-    status: Mapped[UserStatus] = mapped_column(
-        Enum(UserStatus), nullable=False, default=UserStatus.active
+    status: Mapped[AdminUserStatus] = mapped_column(
+        Enum(AdminUserStatus), nullable=False, default=AdminUserStatus.active
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
     roles: Mapped[list[Role]] = relationship(
-        "Role", secondary="user_roles", back_populates="users"
+        "Role", secondary="admin_user_roles", back_populates="admin_users"
     )
