@@ -57,9 +57,9 @@ User ──┐
 
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
-| id | UUID | PK | 用户 ID |
+| id | BigInteger | PK, 自增 | 用户 ID |
 | username | VARCHAR(64) | UNIQUE, NOT NULL | 登录用户名 |
-| hashed_password | VARCHAR(128) | NOT NULL | bcrypt 哈希密码 |
+| hashed_password | VARCHAR(256) | NOT NULL | bcrypt 哈希密码 |
 | status | ENUM('active','disabled') | DEFAULT 'active' | 账号状态 |
 | created_at | TIMESTAMP | DEFAULT now() | 创建时间 |
 
@@ -67,7 +67,7 @@ User ──┐
 
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
-| id | UUID | PK | 角色 ID |
+| id | BigInteger | PK, 自增 | 角色 ID |
 | name | VARCHAR(64) | UNIQUE, NOT NULL | 角色名称 |
 | desc | TEXT | | 角色描述 |
 | created_at | TIMESTAMP | DEFAULT now() | 创建时间 |
@@ -76,28 +76,28 @@ User ──┐
 
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
-| id | UUID | PK | 权限 ID |
+| id | BigInteger | PK, 自增 | 权限 ID |
 | code | VARCHAR(128) | UNIQUE, NOT NULL | 权限码，如 `user:create` |
 | name | VARCHAR(64) | NOT NULL | 权限名称 |
-| type | ENUM('menu','button','api') | NOT NULL | 权限类型 |
+| type | ENUM('menu','api') | NOT NULL | 权限类型 |
 | method | VARCHAR(16) | | HTTP 方法（api 类型时必填） |
 | path | VARCHAR(256) | | 路由路径（api 类型时必填） |
-| parent_id | UUID | FK → permissions.id | 父权限（树形结构） |
+| parent_id | BigInteger | FK → permissions.id | 父权限（树形结构） |
 | created_at | TIMESTAMP | DEFAULT now() | 创建时间 |
 
 #### user_roles（关联表）
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| user_id | UUID FK | 用户 ID |
-| role_id | UUID FK | 角色 ID |
+| user_id | BigInteger FK | 用户 ID |
+| role_id | BigInteger FK | 角色 ID |
 
 #### role_permissions（关联表）
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| role_id | UUID FK | 角色 ID |
-| permission_id | UUID FK | 权限 ID |
+| role_id | BigInteger FK | 角色 ID |
+| permission_id | BigInteger FK | 权限 ID |
 
 ---
 
@@ -107,7 +107,7 @@ User ──┐
 
 ```json
 {
-  "uid": "550e8400-e29b-41d4-a716-446655440000",
+  "uid": 42,
   "username": "alice",
   "roles": ["admin", "editor"],
   "permissions": ["user:list", "user:create", "role:list"],
