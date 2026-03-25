@@ -60,7 +60,7 @@ async def create_token_for_user(db: AsyncSession, redis: Redis, user: AdminUser)
     await redis.set(f"user_permissions:{user.id}", json.dumps(perm_list), ex=86400)
 
     payload = {
-        "uid": user.id,
+        "uid": str(user.public_id),
         "username": user.username,
         "roles": roles,
         "permissions": perm_list,
