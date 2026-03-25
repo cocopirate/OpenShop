@@ -25,8 +25,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.include_router(router)
-
 
 @app.get("/health", tags=["health"])
 async def health_check():
@@ -55,3 +53,5 @@ async def readiness_check():
             detail=f"redis not ready: {exc}",
         )
     return {"status": "ready", "service": settings.SERVICE_NAME}
+
+app.include_router(router)

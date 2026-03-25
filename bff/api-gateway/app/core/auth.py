@@ -9,6 +9,7 @@ from app.core.redis import get_redis
 # Public paths that don't need auth
 PUBLIC_PATHS = {
     ("POST", "/api/auth/login"),
+    ("POST", "/api/auth/admin/login"),
     ("GET", "/health"),
     ("GET", "/health/ready"),
     ("GET", "/metrics"),
