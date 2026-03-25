@@ -1,20 +1,26 @@
 # Build stage
 FROM python:3.11-slim AS builder
 
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
 WORKDIR /app
 COPY requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
+RUN uv venv /app/.venv && uv pip install --no-cache -r requirements.txt
 
 # Runtime stage
 FROM python:3.11-slim
 
 WORKDIR /app
-COPY --from=builder /root/.local /root/.local
+COPY --from=builder /app/.venv /app/.venv
 COPY app/ ./app/
+COPY alembic/ ./alembic/
+COPY alembic.ini .
+COPY entrypoint.sh .
+RUN chmod +x entrypoint.sh
 
-ENV PATH=/root/.local/bin:$PATH
+ENV PATH=/app/.venv/bin:$PATH
 ENV PYTHONPATH=/app
 
 EXPOSE 8010
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8010"]
+ENTRYPOINT ["./entrypoint.sh"]
