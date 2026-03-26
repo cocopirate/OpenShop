@@ -1,4 +1,4 @@
-"""Unified API response helpers per api-contract.md."""
+"""Unified API response helpers."""
 from __future__ import annotations
 
 import uuid
@@ -27,16 +27,16 @@ def set_request_id(rid: str) -> None:
 
 
 # --------------------------------------------------------------------------- #
-# Business error codes (api-contract.md §错误码规范)                           #
+# Business error codes                                                          #
 # --------------------------------------------------------------------------- #
 
 SUCCESS = 0
 
-# User-related errors (40001–40099)
-USER_NOT_FOUND = 40001
-USER_ALREADY_EXISTS = 40002
+# Admin-related errors (40001–40099)
+ADMIN_NOT_FOUND = 40001
+ADMIN_ALREADY_EXISTS = 40002
 INVALID_CREDENTIALS = 40003
-USER_DISABLED = 40004
+ADMIN_DISABLED = 40004
 ROLE_NOT_FOUND = 40005
 PERMISSION_NOT_FOUND = 40006
 TOKEN_INVALID = 40007
@@ -45,10 +45,7 @@ MISSING_TOKEN = 40009
 PERMISSION_DENIED = 40010
 VALIDATION_ERROR = 40011
 
-# Consumer-related errors (40012–40099)
-CONSUMER_NOT_FOUND = 40012
-ADDRESS_NOT_FOUND = 40013
-INSUFFICIENT_POINTS = 40014
+ROLE_CANNOT_DELETE_SYSTEM = 40012
 
 # Internal-service errors (50000–50099)
 INTERNAL_ERROR = 50000
@@ -62,7 +59,7 @@ _HTTP_CODE_MAP: dict[int, int] = {
     400: VALIDATION_ERROR,
     401: TOKEN_INVALID,
     403: PERMISSION_DENIED,
-    404: USER_NOT_FOUND,
+    404: ADMIN_NOT_FOUND,
     422: VALIDATION_ERROR,
     500: INTERNAL_ERROR,
 }

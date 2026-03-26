@@ -1,11 +1,15 @@
-from app.schemas.auth import LoginRequest, TokenPayload, TokenResponse
-from app.schemas.permission import PermissionCreate, PermissionResponse, PermissionUpdate
-from app.schemas.role import RoleCreate, RoleResponse, RoleUpdate
-from app.schemas.user import AdminUserCreate, AdminUserResponse, AdminUserStatusUpdate, AdminUserUpdate
+from app.schemas.consumer import (
+    AddressCreate,
+    AddressResponse,
+    AddressUpdate,
+    ConsumerCreate,
+    ConsumerResponse,
+    ConsumerUpdate,
+    PointsAdjustRequest,
+)
 
 __all__ = [
-    "LoginRequest", "TokenPayload", "TokenResponse",
-    "PermissionCreate", "PermissionResponse", "PermissionUpdate",
-    "RoleCreate", "RoleResponse", "RoleUpdate",
-    "AdminUserCreate", "AdminUserResponse", "AdminUserStatusUpdate", "AdminUserUpdate",
+    "ConsumerCreate", "ConsumerResponse", "ConsumerUpdate",
+    "AddressCreate", "AddressResponse", "AddressUpdate",
+    "PointsAdjustRequest",
 ]

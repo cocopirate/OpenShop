@@ -7,8 +7,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
-from app.api.v1.router import router as v1_router
 from app.api.v1.internal import router as internal_router
+from app.api.v1.router import router as v1_router
 from app.core.config import settings
 from app.core.database import engine
 from app.core.logging import configure_logging
@@ -28,11 +28,11 @@ log = structlog.get_logger(__name__)
 async def lifespan(application: FastAPI):
     configure_logging()
     await init_redis()
-    log.info("user_service.started", version="1.0.0")
+    log.info("admin_service.started", version="1.0.0")
     yield
     await close_redis()
     await engine.dispose()
-    log.info("user_service.stopped")
+    log.info("admin_service.stopped")
 
 
 app = FastAPI(

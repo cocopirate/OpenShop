@@ -1,4 +1,4 @@
-"""Unified API response helpers per api-contract.md."""
+"""Unified API response helpers."""
 from __future__ import annotations
 
 import uuid
@@ -27,42 +27,36 @@ def set_request_id(rid: str) -> None:
 
 
 # --------------------------------------------------------------------------- #
-# Business error codes (api-contract.md §错误码规范)                           #
+# Business error codes                                                          #
 # --------------------------------------------------------------------------- #
 
 SUCCESS = 0
 
-# User-related errors (40001–40099)
-USER_NOT_FOUND = 40001
-USER_ALREADY_EXISTS = 40002
-INVALID_CREDENTIALS = 40003
-USER_DISABLED = 40004
-ROLE_NOT_FOUND = 40005
-PERMISSION_NOT_FOUND = 40006
-TOKEN_INVALID = 40007
-TOKEN_INVALIDATED = 40008
-MISSING_TOKEN = 40009
-PERMISSION_DENIED = 40010
 VALIDATION_ERROR = 40011
 
-# Consumer-related errors (40012–40099)
-CONSUMER_NOT_FOUND = 40012
-ADDRESS_NOT_FOUND = 40013
-INSUFFICIENT_POINTS = 40014
+# Merchant-related errors (42001–42099)
+MERCHANT_NOT_FOUND = 42001
+MERCHANT_ALREADY_EXISTS = 42002
+STORE_NOT_FOUND = 42003
+SUB_ACCOUNT_NOT_FOUND = 42004
+STAFF_NOT_FOUND = 42005
+ROLE_NOT_FOUND = 42006
+PERMISSION_NOT_FOUND = 42007
+DUPLICATE_USERNAME = 42008
+DUPLICATE_PHONE = 42009
 
-# Internal-service errors (50000–50099)
+# Internal-service errors
 INTERNAL_ERROR = 50000
 
-
 # --------------------------------------------------------------------------- #
-# HTTP status → business error code default mapping                            #
+# HTTP status → business error code mapping                                    #
 # --------------------------------------------------------------------------- #
 
 _HTTP_CODE_MAP: dict[int, int] = {
     400: VALIDATION_ERROR,
-    401: TOKEN_INVALID,
-    403: PERMISSION_DENIED,
-    404: USER_NOT_FOUND,
+    401: 40007,
+    403: 40010,
+    404: MERCHANT_NOT_FOUND,
     422: VALIDATION_ERROR,
     500: INTERNAL_ERROR,
 }
@@ -78,7 +72,6 @@ def http_status_to_code(http_status: int) -> int:
 
 
 def ok(data: Any = None, message: str = "success") -> dict:
-    """Build a successful unified response body."""
     return {
         "code": SUCCESS,
         "message": message,
@@ -88,7 +81,6 @@ def ok(data: Any = None, message: str = "success") -> dict:
 
 
 def err(code: int, message: str) -> dict:
-    """Build an error unified response body."""
     return {
         "code": code,
         "message": message,
@@ -98,7 +90,6 @@ def err(code: int, message: str) -> dict:
 
 
 def error_response(http_status: int, code: int, message: str) -> JSONResponse:
-    """Return a JSONResponse with unified error body."""
     return JSONResponse(
         status_code=http_status,
         content=err(code, message),
