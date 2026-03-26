@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     # Required: set via environment variables or .env file (see .env.example)
     DATABASE_URL: str
     REDIS_URL: str
-    KAFKA_BOOTSTRAP_SERVERS: str = "localhost:9092"
+    RABBITMQ_URL: str = "amqp://guest:guest@localhost:5672/"
 
     USER_SERVICE_URL: str = "http://user-service:8001"
     INVENTORY_SERVICE_URL: str = "http://inventory-service:8004"
