@@ -1,9 +1,7 @@
 from fastapi import APIRouter
 
-from app.api.v1 import auth, permissions, roles, users
+from app.api.v1 import addresses, consumers
 
 router = APIRouter()
-router.include_router(auth.router, prefix="/auth", tags=["auth"])
-router.include_router(users.router, prefix="/users", tags=["users"])
-router.include_router(roles.router, prefix="/roles", tags=["roles"])
-router.include_router(permissions.router, prefix="/permissions", tags=["permissions"])
+router.include_router(consumers.router, prefix="/consumers", tags=["consumers"])
+router.include_router(addresses.router, prefix="/consumers", tags=["addresses"])
