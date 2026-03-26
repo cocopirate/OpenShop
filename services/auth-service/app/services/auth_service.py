@@ -14,6 +14,9 @@ from app.models.credential import AuthCredential, AuthLoginLog
 
 log = structlog.get_logger(__name__)
 
+AUTH_VERSION_TTL_SECONDS = 86400  # 24 h
+UPSTREAM_SERVICE_TIMEOUT = 5.0    # seconds
+
 # account_type constants
 ACCOUNT_CONSUMER = 1
 ACCOUNT_MERCHANT = 2
@@ -46,7 +49,7 @@ async def _get_auth_version(redis: Redis, biz_id: int, account_type: int) -> int
     ver_key = f"auth_ver:{biz_id}:{account_type}"
     ver = await redis.get(ver_key)
     if ver is None:
-        await redis.set(ver_key, 0, ex=86400)
+        await redis.set(ver_key, 0, ex=AUTH_VERSION_TTL_SECONDS)
         return 0
     return int(ver)
 
@@ -327,7 +330,7 @@ async def logout_token(redis: Redis, token_payload: dict) -> None:
 
     ver_key = f"auth_ver:{biz_id}:{account_type_int}"
     await redis.incr(ver_key)
-    await redis.expire(ver_key, 86400)
+    await redis.expire(ver_key, AUTH_VERSION_TTL_SECONDS)
 
 
 # --------------------------------------------------------------------------- #
@@ -338,7 +341,7 @@ async def logout_token(redis: Redis, token_payload: dict) -> None:
 async def _fetch_sub_account_info(biz_id: int) -> tuple[str, list[str]]:
     url = f"{settings.MERCHANT_SERVICE_URL}/internal/sub-accounts/{biz_id}"
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
+        async with httpx.AsyncClient(timeout=UPSTREAM_SERVICE_TIMEOUT) as client:
             resp = await client.get(url)
     except httpx.RequestError as exc:
         log.error("merchant_service.unreachable", biz_id=biz_id, error=str(exc))
@@ -368,7 +371,7 @@ async def _fetch_sub_account_info(biz_id: int) -> tuple[str, list[str]]:
 async def _fetch_staff_info(biz_id: int) -> tuple[str, str, str]:
     url = f"{settings.MERCHANT_SERVICE_URL}/internal/staff/{biz_id}"
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
+        async with httpx.AsyncClient(timeout=UPSTREAM_SERVICE_TIMEOUT) as client:
             resp = await client.get(url)
     except httpx.RequestError as exc:
         log.error("merchant_service.unreachable", biz_id=biz_id, error=str(exc))
@@ -399,7 +402,7 @@ async def _fetch_staff_info(biz_id: int) -> tuple[str, str, str]:
 async def _fetch_admin_permissions(biz_id: int) -> list[str]:
     url = f"{settings.ADMIN_SERVICE_URL}/internal/admins/{biz_id}"
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
+        async with httpx.AsyncClient(timeout=UPSTREAM_SERVICE_TIMEOUT) as client:
             resp = await client.get(url)
     except httpx.RequestError as exc:
         log.error("admin_service.unreachable", biz_id=biz_id, error=str(exc))
