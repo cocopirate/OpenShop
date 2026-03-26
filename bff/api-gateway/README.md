@@ -71,15 +71,21 @@ CRYPTO_RSA_PRIVATE_KEY=
 
 # HMAC-SHA256 签名密钥
 CRYPTO_HMAC_SECRET=change-this-hmac-secret-in-production
+```
 
-# 需要验签的路径前缀（JSON 数组）
-CRYPTO_SIGN_PATHS_JSON=[]
+哪些接口需要验签或加解密，通过**路由 tag** 在代码中声明（而非环境变量路径列表）：
 
-# 请求体需解密的路径前缀（JSON 数组）
-CRYPTO_ENCRYPT_REQUEST_PATHS_JSON=[]
+| Tag | 功能 |
+|-----|------|
+| `require-sign` | 验证 `X-Timestamp` + `X-Sign` HMAC-SHA256 签名 |
+| `require-encrypt-request` | 解密 AES+RSA 混合加密的请求体 |
+| `require-encrypt-response` | 用 AES 会话密钥加密上游响应体 |
 
-# 响应体需加密的路径前缀（JSON 数组，必须也在请求解密列表中）
-CRYPTO_ENCRYPT_RESPONSE_PATHS_JSON=[]
+```python
+@router.post("/api/v1/orders", tags=["require-sign", "require-encrypt-request",
+                                     "require-encrypt-response"])
+async def create_order(request: Request):
+    ...
 ```
 
 详细协议说明见 [API.md](API.md#安全加密说明)。

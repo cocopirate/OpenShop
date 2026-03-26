@@ -225,27 +225,8 @@ def _make_sign_headers(body: bytes, method: str, path: str, secret: str) -> dict
 class TestCryptoMiddleware:
     """Tests that exercise CryptoMiddleware via a minimal FastAPI app."""
 
-    def _build_app(self, private_pem: str, sign_paths: list, enc_req: list, enc_resp: list):
-        from fastapi import FastAPI
-        from app.middleware.crypto_middleware import CryptoMiddleware
-
-        app = FastAPI()
-
-        @app.post("/api/v1/orders")
-        async def create_order(request: Request):
-            body = await request.body()
-            return Response(content=body, media_type="application/json")
-
-        @app.post("/api/open/echo")
-        async def echo(request: Request):
-            body = await request.body()
-            return Response(content=body, media_type="application/json")
-
-        app.add_middleware(CryptoMiddleware)
-        return app
-
     def test_passthrough_non_configured_path(self):
-        """Paths not in any crypto list pass through untouched."""
+        """Routes without any crypto tags pass through untouched."""
         from fastapi import FastAPI
         from app.middleware.crypto_middleware import CryptoMiddleware
 
@@ -257,13 +238,8 @@ class TestCryptoMiddleware:
 
         app.add_middleware(CryptoMiddleware)
 
-        with patch("app.middleware.crypto_middleware.settings") as mock_cfg:
-            mock_cfg.CRYPTO_SIGN_PATHS = []
-            mock_cfg.CRYPTO_ENCRYPT_REQUEST_PATHS = []
-            mock_cfg.CRYPTO_ENCRYPT_RESPONSE_PATHS = []
-
-            client = TestClient(app, raise_server_exceptions=False)
-            resp = client.get("/health")
+        client = TestClient(app, raise_server_exceptions=False)
+        resp = client.get("/health")
         assert resp.status_code == 200
 
     def test_sign_missing_headers_returns_400(self):
@@ -272,16 +248,13 @@ class TestCryptoMiddleware:
 
         app = FastAPI()
 
-        @app.post("/api/v1/orders")
+        @app.post("/api/v1/orders", tags=["require-sign"])
         async def _handler(request: Request):
             return Response(content=b"{}", media_type="application/json")
 
         app.add_middleware(CryptoMiddleware)
 
         with patch("app.middleware.crypto_middleware.settings") as mock_cfg:
-            mock_cfg.CRYPTO_SIGN_PATHS = ["/api/v1/orders"]
-            mock_cfg.CRYPTO_ENCRYPT_REQUEST_PATHS = []
-            mock_cfg.CRYPTO_ENCRYPT_RESPONSE_PATHS = []
             mock_cfg.CRYPTO_HMAC_SECRET = "secret"
 
             client = TestClient(app, raise_server_exceptions=False)
@@ -298,7 +271,7 @@ class TestCryptoMiddleware:
 
         app = FastAPI()
 
-        @app.post("/api/v1/orders")
+        @app.post("/api/v1/orders", tags=["require-sign"])
         async def _handler(request: Request):
             return Response(content=b'{"ok":true}', media_type="application/json")
 
@@ -309,9 +282,6 @@ class TestCryptoMiddleware:
         sig = compute_hmac_sign(body, ts, "POST", "/api/v1/orders", secret)
 
         with patch("app.middleware.crypto_middleware.settings") as mock_cfg:
-            mock_cfg.CRYPTO_SIGN_PATHS = ["/api/v1/orders"]
-            mock_cfg.CRYPTO_ENCRYPT_REQUEST_PATHS = []
-            mock_cfg.CRYPTO_ENCRYPT_RESPONSE_PATHS = []
             mock_cfg.CRYPTO_HMAC_SECRET = secret
 
             client = TestClient(app, raise_server_exceptions=False)
@@ -329,16 +299,13 @@ class TestCryptoMiddleware:
 
         app = FastAPI()
 
-        @app.post("/api/v1/orders")
+        @app.post("/api/v1/orders", tags=["require-sign"])
         async def _handler(request: Request):
             return Response(content=b"{}", media_type="application/json")
 
         app.add_middleware(CryptoMiddleware)
 
         with patch("app.middleware.crypto_middleware.settings") as mock_cfg:
-            mock_cfg.CRYPTO_SIGN_PATHS = ["/api/v1/orders"]
-            mock_cfg.CRYPTO_ENCRYPT_REQUEST_PATHS = []
-            mock_cfg.CRYPTO_ENCRYPT_RESPONSE_PATHS = []
             mock_cfg.CRYPTO_HMAC_SECRET = "secret"
 
             client = TestClient(app, raise_server_exceptions=False)
@@ -363,7 +330,7 @@ class TestCryptoMiddleware:
 
         app = FastAPI()
 
-        @app.post("/api/v1/orders")
+        @app.post("/api/v1/orders", tags=["require-encrypt-request"])
         async def _handler(request: Request):
             received_body.append(await request.body())
             return Response(content=b'{"ok":true}', media_type="application/json")
@@ -371,9 +338,6 @@ class TestCryptoMiddleware:
         app.add_middleware(CryptoMiddleware)
 
         with patch("app.middleware.crypto_middleware.settings") as mock_cfg:
-            mock_cfg.CRYPTO_SIGN_PATHS = []
-            mock_cfg.CRYPTO_ENCRYPT_REQUEST_PATHS = ["/api/v1/orders"]
-            mock_cfg.CRYPTO_ENCRYPT_RESPONSE_PATHS = []
             mock_cfg.CRYPTO_RSA_PRIVATE_KEY = pem
             # Reset the class-level key cache between tests
             CryptoMiddleware._private_key = None
@@ -393,16 +357,13 @@ class TestCryptoMiddleware:
 
         app = FastAPI()
 
-        @app.post("/api/v1/orders")
+        @app.post("/api/v1/orders", tags=["require-encrypt-request"])
         async def _handler(request: Request):
             return Response(content=b"{}", media_type="application/json")
 
         app.add_middleware(CryptoMiddleware)
 
         with patch("app.middleware.crypto_middleware.settings") as mock_cfg:
-            mock_cfg.CRYPTO_SIGN_PATHS = []
-            mock_cfg.CRYPTO_ENCRYPT_REQUEST_PATHS = ["/api/v1/orders"]
-            mock_cfg.CRYPTO_ENCRYPT_RESPONSE_PATHS = []
             mock_cfg.CRYPTO_RSA_PRIVATE_KEY = pem
             CryptoMiddleware._private_key = None
             CryptoMiddleware._private_key_loaded = False
@@ -419,16 +380,13 @@ class TestCryptoMiddleware:
 
         app = FastAPI()
 
-        @app.post("/api/v1/orders")
+        @app.post("/api/v1/orders", tags=["require-encrypt-request"])
         async def _handler(request: Request):
             return Response(content=b"{}", media_type="application/json")
 
         app.add_middleware(CryptoMiddleware)
 
         with patch("app.middleware.crypto_middleware.settings") as mock_cfg:
-            mock_cfg.CRYPTO_SIGN_PATHS = []
-            mock_cfg.CRYPTO_ENCRYPT_REQUEST_PATHS = ["/api/v1/orders"]
-            mock_cfg.CRYPTO_ENCRYPT_RESPONSE_PATHS = []
             mock_cfg.CRYPTO_RSA_PRIVATE_KEY = ""
             CryptoMiddleware._private_key = None
             CryptoMiddleware._private_key_loaded = False
@@ -450,16 +408,13 @@ class TestCryptoMiddleware:
 
         app = FastAPI()
 
-        @app.post("/api/v1/orders")
+        @app.post("/api/v1/orders", tags=["require-encrypt-request", "require-encrypt-response"])
         async def _handler(request: Request):
             return Response(content=b'{"code":0,"data":"ok"}', media_type="application/json")
 
         app.add_middleware(CryptoMiddleware)
 
         with patch("app.middleware.crypto_middleware.settings") as mock_cfg:
-            mock_cfg.CRYPTO_SIGN_PATHS = []
-            mock_cfg.CRYPTO_ENCRYPT_REQUEST_PATHS = ["/api/v1/orders"]
-            mock_cfg.CRYPTO_ENCRYPT_RESPONSE_PATHS = ["/api/v1/orders"]
             mock_cfg.CRYPTO_RSA_PRIVATE_KEY = pem
             CryptoMiddleware._private_key = None
             CryptoMiddleware._private_key_loaded = False
