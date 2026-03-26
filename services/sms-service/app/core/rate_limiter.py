@@ -4,6 +4,8 @@ from dataclasses import dataclass
 
 from redis.asyncio import Redis
 
+from app.core.config import settings
+
 
 @dataclass
 class RateLimitResult:
@@ -66,26 +68,38 @@ async def check_rate_limit(
 
 
 async def check_phone_rate_limit(redis: Redis, phone: str) -> RateLimitResult:
-    """Check per-phone rate limits (1/min and 10/day)."""
+    """Check per-phone rate limits (configurable per-minute and per-day)."""
     result = await check_rate_limit(
-        redis, f"sms:rl:phone:min:{phone}", limit=1, window=60
+        redis,
+        f"sms:rl:phone:min:{phone}",
+        limit=settings.SMS_RATE_LIMIT_PHONE_PER_MINUTE,
+        window=60,
     )
     if not result.allowed:
         return result
     result = await check_rate_limit(
-        redis, f"sms:rl:phone:day:{phone}", limit=10, window=86400
+        redis,
+        f"sms:rl:phone:day:{phone}",
+        limit=settings.SMS_RATE_LIMIT_PHONE_PER_DAY,
+        window=86400,
     )
     return result
 
 
 async def check_ip_rate_limit(redis: Redis, ip: str) -> RateLimitResult:
-    """Check per-IP rate limits (10/min, 100/day)."""
+    """Check per-IP rate limits (configurable per-minute and per-day)."""
     result = await check_rate_limit(
-        redis, f"sms:rl:ip:min:{ip}", limit=10, window=60
+        redis,
+        f"sms:rl:ip:min:{ip}",
+        limit=settings.SMS_RATE_LIMIT_IP_PER_MINUTE,
+        window=60,
     )
     if not result.allowed:
         return result
     result = await check_rate_limit(
-        redis, f"sms:rl:ip:day:{ip}", limit=100, window=86400
+        redis,
+        f"sms:rl:ip:day:{ip}",
+        limit=settings.SMS_RATE_LIMIT_IP_PER_DAY,
+        window=86400,
     )
     return result
