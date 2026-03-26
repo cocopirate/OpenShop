@@ -53,9 +53,9 @@ POST /api/v1/notifications/send
 
 | channel | 说明 | 下游依赖 |
 |---------|------|---------|
-| `push` | App Push 通知（FCM/APNs） | 异步队列（Kafka） |
-| `email` | 邮件通知 | 异步队列（Kafka） |
-| `in_app` | 站内信 | 异步队列（Kafka） |
+| `push` | App Push 通知（FCM/APNs） | 异步队列（RabbitMQ） |
+| `email` | 邮件通知 | 异步队列（RabbitMQ） |
+| `in_app` | 站内信 | 异步队列（RabbitMQ） |
 | `sms` | 短信通知 | **sms-service（同步 HTTP 调用）** |
 
 ## 数据模型
@@ -67,7 +67,7 @@ POST /api/v1/notifications/send
 ## 依赖服务
 
 - **sms-service**（`http://sms-service:8010`）– 短信渠道的下游能力服务
-- Kafka（消费各服务产生的通知事件）
+- RabbitMQ（消费各服务产生的通知事件）
 
 ## 配置项
 
@@ -76,7 +76,7 @@ POST /api/v1/notifications/send
 | `SMS_SERVICE_URL` | `http://sms-service:8010` | sms-service 地址 |
 | `DATABASE_URL` | – | PostgreSQL 连接串 |
 | `REDIS_URL` | – | Redis 连接串 |
-| `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Kafka 地址 |
+| `RABBITMQ_URL` | `amqp://guest:guest@localhost:5672/` | RabbitMQ 地址 |
 
 ## 端口
 

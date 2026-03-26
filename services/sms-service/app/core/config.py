@@ -25,8 +25,8 @@ class Settings(BaseSettings):
     REDIS_POOL_MIN_SIZE: int = 2
     REDIS_POOL_MAX_SIZE: int = 10
 
-    # Kafka (optional consumer)
-    KAFKA_BOOTSTRAP_SERVERS: str = "localhost:9092"
+    # RabbitMQ (optional consumer)
+    RABBITMQ_URL: str = "amqp://guest:guest@localhost:5672/"
 
     # SMS providers – Aliyun
     ALIYUN_ACCESS_KEY_ID: str = ""

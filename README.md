@@ -30,7 +30,7 @@
        │                           │
 ┌──────▼───────────────────────────▼──────────────────────────────┐
 │                         基础设施层                                   │
-│     PostgreSQL   Redis   Kafka   Elasticsearch                   │
+│     PostgreSQL   Redis   RabbitMQ   Elasticsearch                   │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -116,7 +116,7 @@ OpenShop/
 | 服务框架 | FastAPI (Python 3.11+) |
 | 数据库 | PostgreSQL (云托管) |
 | 缓存 | Redis (云托管) |
-| 消息队列 | Kafka |
+| 消息队列 | RabbitMQ |
 | 搜索引擎 | Elasticsearch |
 | 容器编排 | Kubernetes |
 | 服务发现 | Kubernetes DNS |

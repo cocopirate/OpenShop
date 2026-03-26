@@ -24,8 +24,8 @@
 
 ## 依赖服务
 
-- inventory-service（库存扣减，Kafka）
-- notification-service（订单通知，Kafka）
+- inventory-service（库存扣减，RabbitMQ）
+- notification-service（订单通知，RabbitMQ）
 
 ## 端口
 
