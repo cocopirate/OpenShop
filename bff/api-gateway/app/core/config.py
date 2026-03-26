@@ -1,5 +1,3 @@
-import json
-
 from pydantic_settings import BaseSettings
 
 
@@ -44,36 +42,8 @@ class Settings(BaseSettings):
     CRYPTO_RSA_PRIVATE_KEY: str = ""
 
     # Shared HMAC-SHA256 secret used for request signature verification.
-    # Leave empty to disable signature verification even if paths are listed.
+    # Leave empty to disable signature verification.
     CRYPTO_HMAC_SECRET: str = ""
-
-    # JSON list of path *prefixes* whose requests must carry a valid
-    # X-Timestamp / X-Sign header pair.
-    # Example: '["/api/v1/orders", "/api/v1/payments"]'
-    CRYPTO_SIGN_PATHS_JSON: str = "[]"
-
-    # JSON list of path *prefixes* whose request bodies are hybrid-encrypted
-    # (AES-256-CBC body + RSA-OAEP encrypted AES key).
-    # Example: '["/api/v1/orders"]'
-    CRYPTO_ENCRYPT_REQUEST_PATHS_JSON: str = "[]"
-
-    # JSON list of path *prefixes* whose responses should be AES-encrypted.
-    # These paths must also be in CRYPTO_ENCRYPT_REQUEST_PATHS_JSON so that
-    # the session AES key is available for response encryption.
-    # Example: '["/api/v1/orders"]'
-    CRYPTO_ENCRYPT_RESPONSE_PATHS_JSON: str = "[]"
-
-    @property
-    def CRYPTO_SIGN_PATHS(self) -> list[str]:
-        return json.loads(self.CRYPTO_SIGN_PATHS_JSON)
-
-    @property
-    def CRYPTO_ENCRYPT_REQUEST_PATHS(self) -> list[str]:
-        return json.loads(self.CRYPTO_ENCRYPT_REQUEST_PATHS_JSON)
-
-    @property
-    def CRYPTO_ENCRYPT_RESPONSE_PATHS(self) -> list[str]:
-        return json.loads(self.CRYPTO_ENCRYPT_RESPONSE_PATHS_JSON)
 
 
 settings = Settings()
