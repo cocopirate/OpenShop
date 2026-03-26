@@ -24,7 +24,7 @@
 
 ## 依赖服务
 
-- order-service（通过 Kafka 监听订单事件）
+- order-service（通过 RabbitMQ 监听订单事件）
 
 ## 端口
 

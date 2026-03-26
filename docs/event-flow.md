@@ -1,9 +1,9 @@
 # 事件流设计文档
 
-## Kafka Topics
+## RabbitMQ Exchanges / Routing Keys
 
-| Topic | 生产者 | 消费者 | 说明 |
-|-------|--------|--------|------|
+| Routing Key | 生产者 | 消费者 | 说明 |
+|-------------|--------|--------|------|
 | `order.created` | order-service | inventory-service, notification-service | 订单创建 |
 | `order.paid` | order-service | inventory-service, promotion-service, notification-service | 订单支付成功 |
 | `order.cancelled` | order-service | inventory-service, notification-service | 订单取消 |
@@ -35,7 +35,7 @@ order-orchestration
   |
   `-- 返回 order_id 给客户端
 
-order-service (Kafka Consumer: order.created)
+order-service (RabbitMQ Consumer: order.created)
   `-- notification-service 收到事件 -> 发送下单成功通知
 ```
 

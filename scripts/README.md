@@ -28,7 +28,7 @@
 
 启动脚本会自动完成以下步骤：
 
-1. **启动基础设施**（PostgreSQL / Redis / Kafka）— 通过 `infra/docker-compose.yml`
+1. **启动基础设施**（PostgreSQL / Redis / RabbitMQ）— 通过 `infra/docker-compose.yml`
 2. **等待基础设施就绪**（10 秒）
 3. 对每个服务依次执行：
    - 创建 Python 3.11 虚拟环境（`.venv`，若不存在）

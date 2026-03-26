@@ -4,7 +4,7 @@ metadata:
   name: openshop-config
   namespace: openshop
 data:
-  KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+  RABBITMQ_URL: "amqp://openshop:openshop123@rabbitmq:5672/"
   ELASTICSEARCH_URL: "http://elasticsearch:9200"
   LOG_LEVEL: "INFO"
   PYTHONPATH: "/app"
