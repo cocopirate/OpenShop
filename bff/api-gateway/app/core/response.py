@@ -37,11 +37,17 @@ TOKEN_INVALID = 40007
 MISSING_TOKEN = 40009
 PERMISSION_DENIED = 40010
 
+# Crypto / security errors (40012–40014)
+SIGN_MISSING = 40012
+SIGN_INVALID = 40013
+DECRYPT_FAILED = 40014
+
 # Internal-service / gateway errors (50000–50099)
 INTERNAL_ERROR = 50000
 UPSTREAM_UNAVAILABLE = 50001
 UPSTREAM_TIMEOUT = 50002
 ROUTE_NOT_FOUND = 50003
+CRYPTO_CONFIG_ERROR = 50004
 
 
 # --------------------------------------------------------------------------- #
