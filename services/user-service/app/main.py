@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.api.v1.router import router as v1_router
+from app.api.v1.internal import router as internal_router
 from app.core.config import settings
 from app.core.database import engine
 from app.core.logging import configure_logging
@@ -79,6 +80,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 
 app.include_router(v1_router, prefix="/api", tags=["api"])
+app.include_router(internal_router, prefix="/internal", tags=["internal"])
 
 
 @app.get("/health", tags=["health"], summary="Health check")
