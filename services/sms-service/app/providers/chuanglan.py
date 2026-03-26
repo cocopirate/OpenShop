@@ -13,12 +13,11 @@ from app.providers import BaseSmsProvider, SendResult, StatusResult
 class ChuangLanSmsProvider(BaseSmsProvider):
     """ChuangLan SMS adapter."""
 
-    _SEND_URL = "https://smssh1.253.com/msg/v1/send/json"
-    _QUERY_URL = "https://smssh1.253.com/msg/v1/report/json"
-
     def __init__(self) -> None:
         self._account = settings.CHUANGLAN_ACCOUNT
         self._password = settings.CHUANGLAN_PASSWORD
+        self._send_url = settings.CHUANGLAN_API_URL
+        self._query_url = "https://smssh1.253.com/msg/v1/report/json"
 
     async def send(self, phone: str, template_id: str, params: dict) -> SendResult:
         content = self._build_content(template_id, params)
@@ -32,7 +31,7 @@ class ChuangLanSmsProvider(BaseSmsProvider):
         try:
             async with httpx.AsyncClient(timeout=10) as client:
                 resp = await client.post(
-                    self._SEND_URL,
+                    self._send_url,
                     content=json.dumps(payload),
                     headers={"Content-Type": "application/json"},
                 )
@@ -62,7 +61,7 @@ class ChuangLanSmsProvider(BaseSmsProvider):
         try:
             async with httpx.AsyncClient(timeout=10) as client:
                 resp = await client.post(
-                    self._QUERY_URL,
+                    self._query_url,
                     content=json.dumps(payload),
                     headers={"Content-Type": "application/json"},
                 )
