@@ -27,31 +27,25 @@ def set_request_id(rid: str) -> None:
 
 
 # --------------------------------------------------------------------------- #
-# Business error codes (api-contract.md §错误码规范)                           #
+# Business error codes                                                          #
 # --------------------------------------------------------------------------- #
 
 SUCCESS = 0
 
-# User-related errors (40001–40099)
-USER_NOT_FOUND = 40001
-USER_ALREADY_EXISTS = 40002
+# Auth-related errors (40001–40099)
+CREDENTIAL_NOT_FOUND = 40001
+CREDENTIAL_ALREADY_EXISTS = 40002
 INVALID_CREDENTIALS = 40003
-USER_DISABLED = 40004
-ROLE_NOT_FOUND = 40005
-PERMISSION_NOT_FOUND = 40006
+CREDENTIAL_DISABLED = 40004
 TOKEN_INVALID = 40007
 TOKEN_INVALIDATED = 40008
 MISSING_TOKEN = 40009
 PERMISSION_DENIED = 40010
 VALIDATION_ERROR = 40011
 
-# Consumer-related errors (40012–40099)
-CONSUMER_NOT_FOUND = 40012
-ADDRESS_NOT_FOUND = 40013
-INSUFFICIENT_POINTS = 40014
-
 # Internal-service errors (50000–50099)
 INTERNAL_ERROR = 50000
+UPSTREAM_ERROR = 50001
 
 
 # --------------------------------------------------------------------------- #
@@ -62,9 +56,10 @@ _HTTP_CODE_MAP: dict[int, int] = {
     400: VALIDATION_ERROR,
     401: TOKEN_INVALID,
     403: PERMISSION_DENIED,
-    404: USER_NOT_FOUND,
+    404: CREDENTIAL_NOT_FOUND,
     422: VALIDATION_ERROR,
     500: INTERNAL_ERROR,
+    503: UPSTREAM_ERROR,
 }
 
 

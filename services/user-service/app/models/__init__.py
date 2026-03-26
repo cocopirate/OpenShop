@@ -1,5 +1,3 @@
-from app.models.permission import Permission, PermissionType
-from app.models.role import Role
-from app.models.user import AdminUser, AdminUserStatus
+from app.models.consumer import ConsumerAccount, ConsumerAddress
 
-__all__ = ["Permission", "PermissionType", "Role", "AdminUser", "AdminUserStatus"]
+__all__ = ["ConsumerAccount", "ConsumerAddress"]
