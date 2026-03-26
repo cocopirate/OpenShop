@@ -97,17 +97,31 @@ Authorization: Bearer <access_token>
 
 ## 安全加密说明
 
-网关支持对指定接口进行**请求验签**、**AES+RSA 请求解密**和**AES 响应加密**，三项功能相互独立，可按路径前缀精细配置。
+网关支持对指定接口进行**请求验签**、**AES+RSA 请求解密**和**AES 响应加密**，三项功能相互独立，通过路由 tag 精细配置。
 
 ### 配置方式
 
-通过以下环境变量（均为 JSON 数组字符串）声明需要开启安全功能的路径前缀：
+在路由定义上添加对应的 tag，中间件将自动对该接口启用相应安全功能：
+
+| Tag | 功能 |
+|-----|------|
+| `require-sign` | 验证 `X-Timestamp` + `X-Sign` HMAC-SHA256 签名 |
+| `require-encrypt-request` | 解密 AES+RSA 混合加密的请求体 |
+| `require-encrypt-response` | 用 AES 会话密钥加密上游响应体（需同时添加 `require-encrypt-request`） |
+
+**示例**
+
+```python
+@router.post("/api/v1/orders", tags=["require-sign", "require-encrypt-request",
+                                     "require-encrypt-response"])
+async def create_order(request: Request):
+    ...
+```
+
+**密钥配置**（`.env` 文件）
 
 | 环境变量 | 说明 | 示例 |
 |---------|------|------|
-| `CRYPTO_SIGN_PATHS_JSON` | 需要验签的接口路径前缀列表 | `'["/api/v1/orders"]'` |
-| `CRYPTO_ENCRYPT_REQUEST_PATHS_JSON` | 请求体需要解密的接口路径前缀列表 | `'["/api/v1/orders"]'` |
-| `CRYPTO_ENCRYPT_RESPONSE_PATHS_JSON` | 响应体需要加密的接口路径前缀列表（必须同时在请求解密列表中）| `'["/api/v1/orders"]'` |
 | `CRYPTO_HMAC_SECRET` | HMAC-SHA256 签名密钥（验签用） | `change-this-secret` |
 | `CRYPTO_RSA_PRIVATE_KEY` | 服务端 RSA 私钥（PEM 格式，用于解密客户端上传的 AES 会话密钥）| `-----BEGIN RSA PRIVATE KEY-----\n...` |
 
@@ -124,7 +138,7 @@ openssl rsa -in private.pem -pubout -out public.pem
 
 ### 请求验签（X-Sign / X-Timestamp）
 
-当接口路径在 `CRYPTO_SIGN_PATHS_JSON` 中时，客户端必须在请求头中携带：
+当接口路由包含 `require-sign` tag 时，客户端必须在请求头中携带：
 
 | 请求头 | 说明 |
 |-------|------|
@@ -180,7 +194,7 @@ X-Sign: a3f9c2e1b4d7...
 
 ### AES+RSA 请求解密
 
-当接口路径在 `CRYPTO_ENCRYPT_REQUEST_PATHS_JSON` 中时，客户端应发送**混合加密**的请求体。
+当接口路由包含 `require-encrypt-request` tag 时，客户端应发送**混合加密**的请求体。
 
 **加密流程（客户端）**
 
@@ -246,7 +260,7 @@ def encrypt_request(plaintext: bytes, public_key_pem: str) -> bytes:
 
 ### AES 响应加密
 
-当接口路径同时在 `CRYPTO_ENCRYPT_REQUEST_PATHS_JSON` 和 `CRYPTO_ENCRYPT_RESPONSE_PATHS_JSON` 中时，网关将用本次请求的 AES 会话密钥加密上游服务的响应体。
+当接口路由同时包含 `require-encrypt-request` 和 `require-encrypt-response` tag 时，网关将用本次请求的 AES 会话密钥加密上游服务的响应体。
 
 **响应体 Envelope 格式**
 

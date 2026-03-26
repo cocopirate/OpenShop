@@ -11,9 +11,19 @@ Provides three independently configurable security features for each route:
 
 Execution order per request: decrypt → verify signature → forward → encrypt response.
 
-Which paths use which feature is driven by the three settings lists:
-``CRYPTO_SIGN_PATHS``, ``CRYPTO_ENCRYPT_REQUEST_PATHS``, and
-``CRYPTO_ENCRYPT_RESPONSE_PATHS`` (see :mod:`app.core.config`).
+Which routes use which feature is driven by route tags:
+
+- ``require-sign``             – enable HMAC-SHA256 signature verification.
+- ``require-encrypt-request``  – enable AES+RSA hybrid request decryption.
+- ``require-encrypt-response`` – enable AES response encryption (requires
+  ``require-encrypt-request`` on the same route so the session key is available).
+
+Example::
+
+    @router.post("/api/v1/orders", tags=["require-sign", "require-encrypt-request",
+                                         "require-encrypt-response"])
+    async def create_order(request: Request):
+        ...
 """
 from __future__ import annotations
 
@@ -23,6 +33,7 @@ import structlog
 from fastapi import Request, status
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
+from starlette.routing import Match
 
 from app.core.config import settings
 from app.core.crypto import (
@@ -35,18 +46,30 @@ from app.core.response import err
 
 log = structlog.get_logger(__name__)
 
+# Route tag constants.
+TAG_REQUIRE_SIGN = "require-sign"
+TAG_REQUIRE_ENCRYPT_REQUEST = "require-encrypt-request"
+TAG_REQUIRE_ENCRYPT_RESPONSE = "require-encrypt-response"
 
-def _path_matches(path: str, prefixes: list[str]) -> bool:
-    """Return True if *path* starts with any of the configured *prefixes*."""
-    for prefix in prefixes:
-        if path == prefix or path.startswith(prefix.rstrip("/") + "/"):
-            return True
-    return False
+
+def _get_route_tags(request: Request) -> frozenset[str]:
+    """Return the tags of the route that best matches the current request.
+
+    Iterates the application route list in definition order (matching FastAPI's
+    own dispatch order) and returns the tags of the first fully-matching route.
+    Returns an empty frozenset when no route matches.
+    """
+    for route in request.app.routes:
+        match, _ = route.matches(request.scope)
+        if match == Match.FULL:
+            tags = getattr(route, "tags", None) or []
+            return frozenset(tags)
+    return frozenset()
 
 
 class CryptoMiddleware(BaseHTTPMiddleware):
     """ASGI middleware that handles request decryption, signature verification
-    and response encryption according to the gateway configuration.
+    and response encryption according to the route tags.
     """
 
     # Cached parsed RSA private key (lazy-loaded once).
@@ -73,11 +96,12 @@ class CryptoMiddleware(BaseHTTPMiddleware):
         path = request.url.path
         method = request.method
 
-        needs_sign = _path_matches(path, settings.CRYPTO_SIGN_PATHS)
-        needs_decrypt = _path_matches(path, settings.CRYPTO_ENCRYPT_REQUEST_PATHS)
-        needs_encrypt_resp = _path_matches(path, settings.CRYPTO_ENCRYPT_RESPONSE_PATHS)
+        tags = _get_route_tags(request)
+        needs_sign = TAG_REQUIRE_SIGN in tags
+        needs_decrypt = TAG_REQUIRE_ENCRYPT_REQUEST in tags
+        needs_encrypt_resp = TAG_REQUIRE_ENCRYPT_RESPONSE in tags
 
-        # Nothing to do for this path – fast exit.
+        # Nothing to do for this route – fast exit.
         if not (needs_sign or needs_decrypt or needs_encrypt_resp):
             return await call_next(request)
 
@@ -163,7 +187,7 @@ class CryptoMiddleware(BaseHTTPMiddleware):
                 log.warning(
                     "crypto.resp_encrypt_skipped_no_key",
                     path=path,
-                    hint="Add path to CRYPTO_ENCRYPT_REQUEST_PATHS_JSON so a session key is established",
+                    hint="Add 'require-encrypt-request' tag to the route so a session key is established",
                 )
                 return response
 
