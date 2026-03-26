@@ -26,7 +26,7 @@
 ## 依赖服务
 
 - user-service（用户资格校验）
-- order-service（通过 Kafka 监听订单完成事件）
+- order-service（通过 RabbitMQ 监听订单完成事件）
 
 ## 端口
 

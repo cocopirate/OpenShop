@@ -10,7 +10,7 @@ dependencies = [
     "sqlalchemy[asyncio]==2.0.30",
     "asyncpg==0.29.0",
     "redis[asyncio]==5.0.4",
-    "aiokafka==0.11.0",
+    "aio-pika==9.4.1",
     "alembic==1.13.1",
     "python-jose[cryptography]==3.4.0",
     "passlib[bcrypt]==1.7.4",

@@ -335,9 +335,9 @@ curl -X PUT http://localhost:8009/api/v1/notifications/NOTIF-20240601-001/read \
 | channel | 说明 | 处理方式 | 下游依赖 |
 |---------|------|---------|---------|
 | `sms` | 短信通知 | **同步** HTTP 调用 sms-service | sms-service（:8010） |
-| `push` | App Push 通知（FCM/APNs） | 异步队列 | Kafka |
-| `email` | 邮件通知 | 异步队列 | Kafka |
-| `in_app` | 站内信 | 异步队列 | Kafka |
+| `push` | App Push 通知（FCM/APNs） | 异步队列 | RabbitMQ |
+| `email` | 邮件通知 | 异步队列 | RabbitMQ |
+| `in_app` | 站内信 | 异步队列 | RabbitMQ |
 
 ### 短信通知链路
 

@@ -17,8 +17,8 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://:redis123@localhost:6379/0"
     REDIS_POOL_MAX_SIZE: int = 10
 
-    # Kafka
-    KAFKA_BOOTSTRAP_SERVERS: str = "localhost:9092"
+    # RabbitMQ
+    RABBITMQ_URL: str = "amqp://guest:guest@localhost:5672/"
 
     # Security
     SECRET_KEY: str = "change-this-secret-key-in-production"

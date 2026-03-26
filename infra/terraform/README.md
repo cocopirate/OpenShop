@@ -7,7 +7,7 @@
 - VPC / 子网 / 安全组
 - 数据库实例（RDS）
 - 缓存实例（Redis）
-- 消息队列（RabbitMQ / Kafka）
+- 消息队列（RabbitMQ）
 - 对象存储（OSS / S3）
 
 ## 使用方式
