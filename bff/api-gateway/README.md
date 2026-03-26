@@ -1,6 +1,6 @@
 # API Gateway
 
-统一入口网关，基于 FastAPI 实现，负责路由转发、JWT 鉴权、限流与熔断。
+统一入口网关，基于 FastAPI 实现，负责路由转发、JWT 鉴权、限流与熔断，以及可配置的请求验签与 AES+RSA 加解密。
 
 ## 技术选型
 
@@ -8,6 +8,7 @@
 - **鉴权**: JWT (python-jose)
 - **限流**: slowapi
 - **反向代理**: httpx (异步 HTTP 客户端)
+- **加解密**: cryptography (AES-256-CBC, RSA-OAEP, HMAC-SHA256)
 
 ## 职责
 
@@ -16,6 +17,9 @@
 - 路由转发：将请求代理到对应的下游服务
 - 限流熔断：保护后端服务免受流量冲击
 - 请求日志：记录所有入站请求
+- **请求验签**：对指定接口校验 HMAC-SHA256 签名（`X-Timestamp` + `X-Sign` 请求头）
+- **请求解密**：对指定接口解密 AES+RSA 混合加密的请求体
+- **响应加密**：对指定接口用 AES 会话密钥加密上游响应体
 
 ## 路由规则
 
@@ -43,14 +47,42 @@ api-gateway/
 │   │       └── router.py # 路由聚合
 │   ├── core/
 │   │   ├── config.py     # 配置管理
-│   │   └── auth.py       # JWT 鉴权中间件
+│   │   ├── auth.py       # JWT 鉴权中间件
+│   │   └── crypto.py     # AES/RSA/HMAC 加解密工具
 │   └── middleware/
-│       ├── rate_limit.py # 限流中间件
-│       └── logging.py    # 日志中间件
+│       ├── crypto_middleware.py  # 验签 / 请求解密 / 响应加密中间件
+│       ├── rate_limit.py         # 限流中间件
+│       └── logging.py            # 日志中间件
+├── tests/
+│   ├── test_auth_middleware.py
+│   └── test_crypto_middleware.py
 ├── requirements.txt
 ├── Dockerfile
 └── README.md
 ```
+
+## 加密配置
+
+通过 `.env` 文件中的以下变量配置加密功能（均为可选，留空则关闭对应功能）：
+
+```dotenv
+# 服务端 RSA 私钥（PEM，用于解密客户端发来的 AES 会话密钥）
+CRYPTO_RSA_PRIVATE_KEY=
+
+# HMAC-SHA256 签名密钥
+CRYPTO_HMAC_SECRET=change-this-hmac-secret-in-production
+
+# 需要验签的路径前缀（JSON 数组）
+CRYPTO_SIGN_PATHS_JSON=[]
+
+# 请求体需解密的路径前缀（JSON 数组）
+CRYPTO_ENCRYPT_REQUEST_PATHS_JSON=[]
+
+# 响应体需加密的路径前缀（JSON 数组，必须也在请求解密列表中）
+CRYPTO_ENCRYPT_RESPONSE_PATHS_JSON=[]
+```
+
+详细协议说明见 [API.md](API.md#安全加密说明)。
 
 ## 端口
 

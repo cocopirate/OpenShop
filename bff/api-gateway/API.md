@@ -4,20 +4,21 @@
 **Content-Type**: `application/json`  
 **认证方式**: `Authorization: Bearer <access_token>`
 
-网关作为所有客户端流量的统一入口，负责 JWT 鉴权、路由转发、限流保护与请求日志记录。所有下游服务均通过网关对外暴露。
+网关作为所有客户端流量的统一入口，负责 JWT 鉴权、路由转发、限流保护、请求日志记录，以及可配置的请求验签与 AES+RSA 加解密。所有下游服务均通过网关对外暴露。
 
 ---
 
 ## 目录
 
 1. [认证说明](#认证说明)
-2. [路由规则](#路由规则)
-3. [健康检查](#健康检查)
-4. [认证 Auth（转发至 user-service）](#认证-auth转发至-user-service)
-5. [管理员用户管理（转发至 user-service）](#管理员用户管理转发至-user-service)
-6. [角色管理（转发至 user-service）](#角色管理转发至-user-service)
-7. [权限管理（转发至 user-service）](#权限管理转发至-user-service)
-8. [通用错误码](#通用错误码)
+2. [安全加密说明](#安全加密说明)
+3. [路由规则](#路由规则)
+4. [健康检查](#健康检查)
+5. [认证 Auth（转发至 user-service）](#认证-auth转发至-user-service)
+6. [管理员用户管理（转发至 user-service）](#管理员用户管理转发至-user-service)
+7. [角色管理（转发至 user-service）](#角色管理转发至-user-service)
+8. [权限管理（转发至 user-service）](#权限管理转发至-user-service)
+9. [通用错误码](#通用错误码)
 
 ---
 
@@ -91,6 +92,206 @@ Authorization: Bearer <access_token>
 
 - 每分钟最多 **60** 次请求
 - 每小时最多 **1000** 次请求
+
+---
+
+## 安全加密说明
+
+网关支持对指定接口进行**请求验签**、**AES+RSA 请求解密**和**AES 响应加密**，三项功能相互独立，可按路径前缀精细配置。
+
+### 配置方式
+
+通过以下环境变量（均为 JSON 数组字符串）声明需要开启安全功能的路径前缀：
+
+| 环境变量 | 说明 | 示例 |
+|---------|------|------|
+| `CRYPTO_SIGN_PATHS_JSON` | 需要验签的接口路径前缀列表 | `'["/api/v1/orders"]'` |
+| `CRYPTO_ENCRYPT_REQUEST_PATHS_JSON` | 请求体需要解密的接口路径前缀列表 | `'["/api/v1/orders"]'` |
+| `CRYPTO_ENCRYPT_RESPONSE_PATHS_JSON` | 响应体需要加密的接口路径前缀列表（必须同时在请求解密列表中）| `'["/api/v1/orders"]'` |
+| `CRYPTO_HMAC_SECRET` | HMAC-SHA256 签名密钥（验签用） | `change-this-secret` |
+| `CRYPTO_RSA_PRIVATE_KEY` | 服务端 RSA 私钥（PEM 格式，用于解密客户端上传的 AES 会话密钥）| `-----BEGIN RSA PRIVATE KEY-----\n...` |
+
+生成 RSA 密钥对示例：
+
+```bash
+# 生成 2048 位私钥
+openssl genrsa -out private.pem 2048
+# 导出公钥（客户端持有）
+openssl rsa -in private.pem -pubout -out public.pem
+```
+
+---
+
+### 请求验签（X-Sign / X-Timestamp）
+
+当接口路径在 `CRYPTO_SIGN_PATHS_JSON` 中时，客户端必须在请求头中携带：
+
+| 请求头 | 说明 |
+|-------|------|
+| `X-Timestamp` | Unix 时间戳（秒），服务端接受 ±5 分钟误差 |
+| `X-Sign` | HMAC-SHA256 签名（十六进制小写） |
+
+**签名字符串（String-to-sign）格式**
+
+```
+{timestamp}\n{METHOD}\n{path}\n{body_hex}
+```
+
+- `body_hex`：请求体原始字节的十六进制字符串（空 body 时为空字符串）
+- 当接口同时开启了请求解密，签名是对**明文 body** 计算的
+
+**Python 示例**
+
+```python
+import hashlib, hmac, time
+
+def sign(body: bytes, method: str, path: str, secret: str) -> tuple[str, str]:
+    ts = str(int(time.time()))
+    string_to_sign = f"{ts}\n{method.upper()}\n{path}\n{body.hex()}"
+    sig = hmac.new(secret.encode(), string_to_sign.encode(), hashlib.sha256).hexdigest()
+    return ts, sig
+```
+
+**请求示例**
+
+```http
+POST /api/v1/orders HTTP/1.1
+Host: localhost:8080
+Authorization: Bearer <access_token>
+Content-Type: application/json
+X-Timestamp: 1711411200
+X-Sign: a3f9c2e1b4d7...
+
+{"product_id": 42, "quantity": 1}
+```
+
+**验签失败响应（400）**
+
+```json
+{
+  "code": 40013,
+  "message": "Signature verification failed: Signature mismatch",
+  "data": null,
+  "request_id": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+---
+
+### AES+RSA 请求解密
+
+当接口路径在 `CRYPTO_ENCRYPT_REQUEST_PATHS_JSON` 中时，客户端应发送**混合加密**的请求体。
+
+**加密流程（客户端）**
+
+```
+① 生成随机 AES-256 会话密钥（32 字节）和 IV（16 字节）
+② 用 AES-256-CBC + PKCS7 Padding 加密原始请求 JSON → ciphertext
+③ 用服务端 RSA 公钥（OAEP/SHA-256）加密 AES 会话密钥 → encrypted_key
+④ 发送以下 JSON envelope 作为请求体
+```
+
+**请求体 Envelope 格式**
+
+```json
+{
+  "encrypted_key": "<Base64(RSA-OAEP 加密后的 AES 密钥)>",
+  "iv":            "<Base64(AES CBC IV, 16 字节)>",
+  "data":          "<Base64(AES-256-CBC 加密后的原始请求体)>"
+}
+```
+
+**Python 加密示例**
+
+```python
+import os, json, base64
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives.asymmetric import padding as asym_padding
+from cryptography.hazmat.primitives import hashes, serialization
+
+def encrypt_request(plaintext: bytes, public_key_pem: str) -> bytes:
+    pub_key = serialization.load_pem_public_key(public_key_pem.encode())
+    aes_key = os.urandom(32)
+    iv = os.urandom(16)
+
+    # AES-256-CBC with PKCS7 padding
+    pad_len = 16 - (len(plaintext) % 16)
+    padded = plaintext + bytes([pad_len] * pad_len)
+    cipher = Cipher(algorithms.AES(aes_key), modes.CBC(iv))
+    ciphertext = cipher.encryptor().update(padded) + cipher.encryptor().finalize()
+
+    enc_key = pub_key.encrypt(
+        aes_key,
+        asym_padding.OAEP(mgf=asym_padding.MGF1(hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
+    )
+    return json.dumps({
+        "encrypted_key": base64.b64encode(enc_key).decode(),
+        "iv": base64.b64encode(iv).decode(),
+        "data": base64.b64encode(ciphertext).decode(),
+    }).encode()
+```
+
+**解密失败响应（400）**
+
+```json
+{
+  "code": 40014,
+  "message": "Request decryption failed: Missing field in encrypted request envelope: 'data'",
+  "data": null,
+  "request_id": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+---
+
+### AES 响应加密
+
+当接口路径同时在 `CRYPTO_ENCRYPT_REQUEST_PATHS_JSON` 和 `CRYPTO_ENCRYPT_RESPONSE_PATHS_JSON` 中时，网关将用本次请求的 AES 会话密钥加密上游服务的响应体。
+
+**响应体 Envelope 格式**
+
+```json
+{
+  "iv":   "<Base64(AES CBC IV)>",
+  "data": "<Base64(AES-256-CBC 加密后的原始响应体)>"
+}
+```
+
+客户端用请求时生成的同一个 AES 会话密钥解密即可。
+
+**Python 解密示例**
+
+```python
+import base64, json
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+
+def decrypt_response(envelope_json: str, aes_key: bytes) -> bytes:
+    env = json.loads(envelope_json)
+    iv = base64.b64decode(env["iv"])
+    ciphertext = base64.b64decode(env["data"])
+    cipher = Cipher(algorithms.AES(aes_key), modes.CBC(iv))
+    padded = cipher.decryptor().update(ciphertext) + cipher.decryptor().finalize()
+    pad_len = padded[-1]
+    return padded[:-pad_len]
+```
+
+---
+
+### 处理顺序
+
+```
+客户端请求
+    ↓
+① （若路径在解密列表）RSA 解密 AES 会话密钥 → AES 解密请求体 → 替换为明文
+    ↓
+② （若路径在验签列表）HMAC-SHA256 验证明文 body 签名
+    ↓
+③ JWT 鉴权 / 权限校验
+    ↓
+④ 转发至上游服务
+    ↓
+⑤ （若路径在响应加密列表）AES 加密响应体后返回客户端
+```
 
 ---
 
@@ -1111,10 +1312,14 @@ curl -X DELETE \
 | 状态码 | 错误码 | 说明 |
 |--------|--------|------|
 | 400 | 40011 | 请求参数校验失败 |
+| 400 | 40012 | 缺少签名请求头（X-Timestamp 或 X-Sign） |
+| 400 | 40013 | 请求签名验证失败 |
+| 400 | 40014 | 请求体解密失败 |
 | 401 | 40007 | 未认证、Token 无效/过期/被撤销，或账号已禁用 |
 | 403 | 40010 | 缺少所需权限 |
 | 404 | 50003 | 路径无匹配的上游服务，或资源不存在 |
 | 422 | 40011 | 请求体格式错误 |
+| 500 | 50004 | 网关加解密配置错误 |
 | 503 | 50001 | 上游服务不可用（连接失败） |
 | 504 | 50002 | 上游服务超时（默认 30s） |
 

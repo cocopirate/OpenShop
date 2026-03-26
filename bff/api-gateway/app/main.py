@@ -9,6 +9,7 @@ from app.api.v1.router import router
 from app.core.config import settings
 from app.core.redis import close_redis, get_redis, init_redis
 from app.core.response import err, http_status_to_code, set_request_id
+from app.middleware.crypto_middleware import CryptoMiddleware
 
 log = structlog.get_logger(__name__)
 
@@ -87,3 +88,5 @@ async def readiness_check():
     return {"status": "ready", "service": settings.SERVICE_NAME}
 
 app.include_router(router)
+
+app.add_middleware(CryptoMiddleware)
