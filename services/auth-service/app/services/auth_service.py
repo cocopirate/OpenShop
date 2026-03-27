@@ -423,5 +423,10 @@ async def _fetch_admin_permissions(biz_id: int) -> list[str]:
             detail="Admin service returned an error",
         )
 
-    data = resp.json()
-    return data.get("permissions", [])
+    payload = resp.json()
+    # admin-service 使用统一响应包裹：{"code":0,"message":"success","data":{...}}
+    data = payload.get("data") if isinstance(payload, dict) and "data" in payload else payload
+    if not isinstance(data, dict):
+        return []
+    permissions = data.get("permissions", [])
+    return permissions if isinstance(permissions, list) else []

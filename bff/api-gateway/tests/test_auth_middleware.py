@@ -105,7 +105,7 @@ async def test_verify_request_permission_denied():
         if "user_perm_ver" in key:
             return "1"
         if "user_permissions" in key:
-            return json.dumps(["product:list"])  # missing order:list
+            return json.dumps(["admin.products.view"])  # missing admin.orders.view
         return None
 
     mock_redis = AsyncMock()
@@ -115,7 +115,7 @@ async def test_verify_request_permission_denied():
         with pytest.raises(HTTPException) as exc_info:
             await verify_request(request)
     assert exc_info.value.status_code == 403
-    assert "order:list" in exc_info.value.detail
+    assert "admin.orders.view" in exc_info.value.detail
 
 
 @pytest.mark.asyncio
@@ -129,7 +129,7 @@ async def test_verify_request_success():
         if "user_perm_ver" in key:
             return "1"
         if "user_permissions" in key:
-            return json.dumps(["order:list", "order:create"])
+            return json.dumps(["admin.orders.view", "admin.orders.create"])
         return None
 
     mock_redis = AsyncMock()

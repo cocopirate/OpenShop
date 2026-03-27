@@ -143,6 +143,38 @@ DEFAULT_PERMISSIONS = [
         "method": "GET",
         "parent_code": None,
     },
+    {
+        "perm_code": "admin.orders.view",
+        "perm_name": "查看订单",
+        "perm_type": 1,
+        "path": "/orders",
+        "method": "GET",
+        "parent_code": None,
+    },
+    {
+        "perm_code": "admin.orders.create",
+        "perm_name": "创建订单",
+        "perm_type": 2,
+        "path": "/orders",
+        "method": "POST",
+        "parent_code": "admin.orders.view",
+    },
+    {
+        "perm_code": "admin.products.view",
+        "perm_name": "查看商品",
+        "perm_type": 1,
+        "path": "/products",
+        "method": "GET",
+        "parent_code": None,
+    },
+    {
+        "perm_code": "admin.products.create",
+        "perm_name": "创建商品",
+        "perm_type": 2,
+        "path": "/products",
+        "method": "POST",
+        "parent_code": "admin.products.view",
+    },
 ]
 
 
