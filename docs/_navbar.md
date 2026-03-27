@@ -1,0 +1,6 @@
+- [首页](/)
+- [快速开始](01-getting-started/quick-start.md)
+- [架构](04-architecture/system-overview.md)
+- [API](03-api-reference/auth.md)
+- [部署](07-deployment/k8s-deploy.md)
+- [GitHub](https://github.com/cocopirate/OpenShop)
