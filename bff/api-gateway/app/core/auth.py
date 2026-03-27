@@ -15,6 +15,7 @@ PUBLIC_PATHS = {
     ("POST", "/api/auth/merchant-sub/login"),
     ("POST", "/api/auth/staff/login"),
     ("POST", "/api/auth/register/consumer"),
+    ("POST", "/api/sms/send-code"),
     ("GET", "/health"),
     ("GET", "/health/ready"),
     ("GET", "/metrics"),

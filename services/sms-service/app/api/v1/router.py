@@ -144,7 +144,13 @@ async def send_code_endpoint(
             headers={"Retry-After": str(ip_rl.retry_after)},
         )
 
-    await send_verification_code(db, phone, template_id)
+    try:
+        await send_verification_code(db, phone, template_id)
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={"error_code": "SMS_SEND_FAILED", "message": str(exc)},
+        )
     return {"message": "verification code sent"}
 
 

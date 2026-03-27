@@ -4,7 +4,7 @@ import time
 from typing import Optional
 
 import structlog
-from sqlalchemy import and_, delete, func, select
+from sqlalchemy import and_, delete, func, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -39,6 +39,7 @@ async def send_sms(
     """Send an SMS and persist a send record. Handles idempotency."""
     redis = get_redis()
     phone_masked = mask_phone(phone)
+    idem_key: Optional[str] = None
 
     # Idempotency check
     if request_id:
@@ -111,8 +112,13 @@ async def send_sms(
     await db.flush()
     await db.refresh(record)
 
-    if request_id:
+    if request_id and idem_key:
         await redis.set(idem_key, str(record.id), ex=_IDEMPOTENCY_TTL)
+
+    if not send_result.success:
+        raise RuntimeError(
+            send_result.error_message or send_result.error_code or "SMS provider send failed"
+        )
 
     return record
 
@@ -124,21 +130,16 @@ async def send_verification_code(
 ) -> str:
     """Generate and send a verification code.
 
-    When SMS_PROVIDER is 'aliyun_phone_svc', Aliyun manages the OTP
-    internally via SendSmsVerificationCode; no local Redis state is needed.
-    For all other providers a local 6-digit OTP is generated and cached in Redis.
+    A local 6-digit OTP is generated and cached in Redis for all providers.
+    The code and its validity period (minutes) are passed as template params
+    so the SMS content can render them correctly.
     """
-    if settings.SMS_PROVIDER == "aliyun_phone_svc":
-        # Aliyun PNS generates the code; pass ${min} so the template renders correctly.
-        min_str = str(max(1, settings.SMS_CODE_TTL // 60))
-        await send_sms(db, phone, template_id, {"min": min_str})
-        return ""
-
     code = "".join(secrets.choice(_DIGITS) for _ in range(6))
     redis = get_redis()
     key = _make_verify_key(phone)
     await redis.set(key, code, ex=settings.SMS_CODE_TTL)
-    await send_sms(db, phone, template_id, {"code": code})
+    min_str = str(max(1, settings.SMS_CODE_TTL // 60))
+    await send_sms(db, phone, template_id, {"code": code, "min": min_str})
     return code
 
 
@@ -175,7 +176,7 @@ async def get_sms_records(
     if status:
         filters.append(SmsRecord.status == status)
 
-    where_clause = and_(*filters) if filters else True
+    where_clause = and_(*filters) if filters else true()
 
     total_result = await db.execute(
         select(func.count()).select_from(SmsRecord).where(where_clause)
