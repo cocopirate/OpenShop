@@ -13,6 +13,11 @@ class ConsumerLoginRequest(BaseModel):
     password: str
 
 
+class ConsumerSmsLoginRequest(BaseModel):
+    phone: str
+    code: str
+
+
 class MerchantLoginRequest(BaseModel):
     phone: str
     password: str

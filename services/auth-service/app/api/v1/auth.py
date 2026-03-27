@@ -20,6 +20,7 @@ from app.schemas.auth import (
     AdminTokenResponse,
     ConsumerLoginRequest,
     ConsumerRegisterRequest,
+    ConsumerSmsLoginRequest,
     ConsumerTokenResponse,
     MerchantLoginRequest,
     MerchantSubLoginRequest,
@@ -33,6 +34,7 @@ from app.services.auth_service import (
     login_consumer,
     login_merchant,
     login_merchant_sub,
+    login_or_register_consumer_by_sms,
     login_staff,
     logout_token,
     register_consumer,
@@ -49,6 +51,20 @@ async def consumer_login(
 ) -> JSONResponse:
     redis = get_redis()
     token = await login_consumer(db, redis, request, body.phone, body.password)
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content=ok(ConsumerTokenResponse(access_token=token).model_dump()),
+    )
+
+
+@router.post("/consumer/sms-login", summary="Consumer login or register via SMS OTP", tags=["public"])
+async def consumer_sms_login(
+    body: ConsumerSmsLoginRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    redis = get_redis()
+    token = await login_or_register_consumer_by_sms(db, redis, request, body.phone, body.code)
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=ok(ConsumerTokenResponse(access_token=token).model_dump()),

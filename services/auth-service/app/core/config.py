@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     # Upstream services
     MERCHANT_SERVICE_URL: str = "http://merchant-service:8002"
     ADMIN_SERVICE_URL: str = "http://admin-service:8012"
+    SMS_SERVICE_URL: str = "http://sms-service:8010"
+    CONSUMER_SERVICE_URL: str = "http://consumer-service:8001"
 
     model_config = {
         "env_file": [".env", ".env.local"],
