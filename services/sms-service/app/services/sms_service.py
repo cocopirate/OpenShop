@@ -127,7 +127,7 @@ async def send_verification_code(
     db: AsyncSession,
     phone: str,
     template_id: str,
-) -> str:
+) -> SmsRecord:
     """Generate and send a verification code.
 
     A local 6-digit OTP is generated and cached in Redis for all providers.
@@ -139,8 +139,7 @@ async def send_verification_code(
     key = _make_verify_key(phone)
     await redis.set(key, code, ex=settings.SMS_CODE_TTL)
     min_str = str(max(1, settings.SMS_CODE_TTL // 60))
-    await send_sms(db, phone, template_id, {"code": code, "min": min_str})
-    return code
+    return await send_sms(db, phone, template_id, {"code": code, "min": min_str})
 
 
 async def verify_code(phone: str, code: str) -> bool:

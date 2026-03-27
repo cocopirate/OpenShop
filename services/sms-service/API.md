@@ -135,25 +135,27 @@ curl -X POST http://localhost:8010/api/sms/send \
 
 ```json
 {
-  "error_code": "RATE_LIMIT_EXCEEDED",
+  "code": 40501,
   "message": "Phone rate limit exceeded. Retry after 45s",
-  "retry_after": 45,
-  "limit": 1,
-  "window": 60
+  "data": null,
+  "request_id": "a4273592-26e4-4310-a68f-81adebeb9dbc"
 }
 ```
+
+响应 Header 中同时包含 `Retry-After: 45`。
 
 **429 响应示例（IP 限频）**
 
 ```json
 {
-  "error_code": "RATE_LIMIT_EXCEEDED",
+  "code": 40501,
   "message": "IP rate limit exceeded. Retry after 55s",
-  "retry_after": 55,
-  "limit": 10,
-  "window": 60
+  "data": null,
+  "request_id": "b1234567-89ab-cdef-0123-456789abcdef"
 }
 ```
+
+响应 Header 中同时包含 `Retry-After: 55`。
 
 ---
 
@@ -957,10 +959,9 @@ curl -X PUT http://localhost:8010/api/sms/admin/config \
 
 ```json
 {
-  "error_code": "RATE_LIMIT_EXCEEDED",
+  "code": 40501,
   "message": "IP rate limit exceeded. Retry after 55s",
-  "retry_after": 55,
-  "limit": 10,
-  "window": 60
+  "data": null,
+  "request_id": "b1234567-89ab-cdef-0123-456789abcdef"
 }
 ```

@@ -54,14 +54,6 @@ class SmsRecordListResponse(BaseModel):
     items: List[SmsRecordOut]
 
 
-class RateLimitErrorResponse(BaseModel):
-    error_code: str = "RATE_LIMIT_EXCEEDED"
-    message: str
-    retry_after: int  # seconds
-    limit: int
-    window: int  # seconds
-
-
 # ---------------------------------------------------------------------------
 # Admin – SMS Template schemas
 # ---------------------------------------------------------------------------

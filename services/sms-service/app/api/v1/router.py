@@ -1,7 +1,8 @@
 from typing import Optional
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Request, status
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -9,9 +10,15 @@ from app.core.masking import mask_phone
 from app.core.metrics import sms_rate_limit_triggered_total
 from app.core.rate_limiter import check_ip_rate_limit, check_phone_rate_limit
 from app.core.redis import get_redis
+from app.core.response import (
+    SMS_INVALID_CODE,
+    SMS_RATE_LIMIT_EXCEEDED,
+    SMS_SEND_FAILED,
+    err,
+    ok,
+)
 from app.models.sms_record import SmsStatus
 from app.schemas.sms import (
-    RateLimitErrorResponse,
     SmsSendRequest,
     SmsSendResponse,
     SmsRecordListResponse,
@@ -41,10 +48,8 @@ def _get_client_ip(request: Request) -> str:
 
 @router.post(
     "/send",
-    response_model=SmsSendResponse,
     status_code=status.HTTP_201_CREATED,
     summary="发送短信",
-    responses={429: {"model": RateLimitErrorResponse, "description": "Rate limit exceeded"}},
 )
 async def send_sms_endpoint(
     req: SmsSendRequest,
@@ -62,15 +67,12 @@ async def send_sms_endpoint(
             phone_masked=mask_phone(req.phone),
             retry_after=phone_rl.retry_after,
         )
-        raise HTTPException(
+        return JSONResponse(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail={
-                "error_code": "RATE_LIMIT_EXCEEDED",
-                "message": f"Phone rate limit exceeded. Retry after {phone_rl.retry_after}s",
-                "retry_after": phone_rl.retry_after,
-                "limit": phone_rl.limit,
-                "window": phone_rl.window,
-            },
+            content=err(
+                SMS_RATE_LIMIT_EXCEEDED,
+                f"Phone rate limit exceeded. Retry after {phone_rl.retry_after}s",
+            ),
             headers={"Retry-After": str(phone_rl.retry_after)},
         )
 
@@ -78,25 +80,25 @@ async def send_sms_endpoint(
     if not ip_rl.allowed:
         sms_rate_limit_triggered_total.labels(dimension="ip").inc()
         log.warning("sms.rate_limit.ip", ip=ip, retry_after=ip_rl.retry_after)
-        raise HTTPException(
+        return JSONResponse(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail={
-                "error_code": "RATE_LIMIT_EXCEEDED",
-                "message": f"IP rate limit exceeded. Retry after {ip_rl.retry_after}s",
-                "retry_after": ip_rl.retry_after,
-                "limit": ip_rl.limit,
-                "window": ip_rl.window,
-            },
+            content=err(
+                SMS_RATE_LIMIT_EXCEEDED,
+                f"IP rate limit exceeded. Retry after {ip_rl.retry_after}s",
+            ),
             headers={"Retry-After": str(ip_rl.retry_after)},
         )
 
     record = await send_sms(db, req.phone, req.template_id, req.params, req.request_id)
-    return SmsSendResponse(
-        message_id=str(record.id),
-        request_id=record.request_id,
-        status=record.status,
-        provider=record.provider,
-        phone_masked=record.phone_masked or mask_phone(record.phone),
+    return JSONResponse(
+        status_code=status.HTTP_201_CREATED,
+        content=ok(SmsSendResponse(
+            message_id=str(record.id),
+            request_id=record.request_id,
+            status=record.status,
+            provider=record.provider,
+            phone_masked=record.phone_masked or mask_phone(record.phone),
+        ).model_dump(mode="json")),
     )
 
 
@@ -117,46 +119,48 @@ async def send_code_endpoint(
     phone_rl = await check_phone_rate_limit(redis, phone)
     if not phone_rl.allowed:
         sms_rate_limit_triggered_total.labels(dimension="phone").inc()
-        raise HTTPException(
+        return JSONResponse(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail={
-                "error_code": "RATE_LIMIT_EXCEEDED",
-                "message": f"Phone rate limit exceeded. Retry after {phone_rl.retry_after}s",
-                "retry_after": phone_rl.retry_after,
-                "limit": phone_rl.limit,
-                "window": phone_rl.window,
-            },
+            content=err(
+                SMS_RATE_LIMIT_EXCEEDED,
+                f"Phone rate limit exceeded. Retry after {phone_rl.retry_after}s",
+            ),
             headers={"Retry-After": str(phone_rl.retry_after)},
         )
 
     ip_rl = await check_ip_rate_limit(redis, ip)
     if not ip_rl.allowed:
         sms_rate_limit_triggered_total.labels(dimension="ip").inc()
-        raise HTTPException(
+        return JSONResponse(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail={
-                "error_code": "RATE_LIMIT_EXCEEDED",
-                "message": f"IP rate limit exceeded. Retry after {ip_rl.retry_after}s",
-                "retry_after": ip_rl.retry_after,
-                "limit": ip_rl.limit,
-                "window": ip_rl.window,
-            },
+            content=err(
+                SMS_RATE_LIMIT_EXCEEDED,
+                f"IP rate limit exceeded. Retry after {ip_rl.retry_after}s",
+            ),
             headers={"Retry-After": str(ip_rl.retry_after)},
         )
 
     try:
-        await send_verification_code(db, phone, template_id)
+        record = await send_verification_code(db, phone, template_id)
     except RuntimeError as exc:
-        raise HTTPException(
+        return JSONResponse(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail={"error_code": "SMS_SEND_FAILED", "message": str(exc)},
+            content=err(SMS_SEND_FAILED, str(exc)),
         )
-    return {"message": "verification code sent"}
+    return JSONResponse(
+        status_code=status.HTTP_201_CREATED,
+        content=ok(SmsSendResponse(
+            message_id=str(record.id),
+            request_id=record.request_id,
+            status=record.status,
+            provider=record.provider,
+            phone_masked=record.phone_masked or mask_phone(record.phone),
+        ).model_dump(mode="json")),
+    )
 
 
 @router.get(
     "/records",
-    response_model=SmsRecordListResponse,
     summary="查询发送记录（支持手机号/时间/状态过滤 + 分页）",
 )
 async def get_sms_records_endpoint(
@@ -173,26 +177,29 @@ async def get_sms_records_endpoint(
     records, total = await get_sms_records(
         db, phone=phone, start_time=start_time, end_time=end_time, status=status, page=page, size=size
     )
-    return SmsRecordListResponse(
-        total=total,
-        page=page,
-        size=size,
-        items=[SmsRecordOut.model_validate(r) for r in records],
+    return JSONResponse(
+        content=ok(SmsRecordListResponse(
+            total=total,
+            page=page,
+            size=size,
+            items=[SmsRecordOut.model_validate(r) for r in records],
+        ).model_dump(mode="json")),
     )
 
 
 @router.post(
     "/verify",
-    response_model=SmsVerifyResponse,
     summary="验证短信验证码",
 )
 async def verify_sms(req: SmsVerifyRequest):
     valid = await verify_code(req.phone, req.code)
     if not valid:
-        raise HTTPException(
+        return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="invalid or expired verification code",
+            content=err(SMS_INVALID_CODE, "invalid or expired verification code"),
         )
-    return SmsVerifyResponse(phone=req.phone, valid=True)
+    return JSONResponse(
+        content=ok(SmsVerifyResponse(phone=req.phone, valid=True).model_dump(mode="json")),
+    )
 
 
