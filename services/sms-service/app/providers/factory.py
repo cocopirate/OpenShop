@@ -23,6 +23,9 @@ def _make_provider(name: str) -> BaseSmsProvider:
     if name == "chuanglan":
         from app.providers.chuanglan import ChuangLanSmsProvider
         return ChuangLanSmsProvider()
+    if name == "aliyun_phone_svc":
+        from app.providers.aliyun_phone_svc import AliyunPhoneSvcProvider
+        return AliyunPhoneSvcProvider()
     from app.providers.aliyun import AliyunSmsProvider
     return AliyunSmsProvider()
 

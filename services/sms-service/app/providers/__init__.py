@@ -11,6 +11,9 @@ class SendResult:
     provider_message_id: str = ""
     error_message: str = ""
     error_code: str = ""
+    # Populated when the provider returns the verification code in the send response.
+    # Callers (e.g. send_verification_code) can then cache it in Redis.
+    verification_code: str = ""
 
 
 @dataclass

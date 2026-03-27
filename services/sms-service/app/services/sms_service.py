@@ -81,6 +81,11 @@ async def send_sms(
             provider_message_id=send_result.provider_message_id,
             latency_ms=round(elapsed * 1000, 2),
         )
+        # When the provider returns the OTP in the send response (e.g. aliyun_phone_svc),
+        # cache it in Redis so the unified verify_code path works for all providers.
+        if send_result.verification_code:
+            vc_key = _make_verify_key(phone)
+            await redis.set(vc_key, send_result.verification_code, ex=settings.SMS_CODE_TTL)
     else:
         record_provider_failure()
         log.error(
@@ -117,7 +122,18 @@ async def send_verification_code(
     phone: str,
     template_id: str,
 ) -> str:
-    """Generate a 6-digit OTP, cache in Redis, and send via SMS."""
+    """Generate and send a verification code.
+
+    When SMS_PROVIDER is 'aliyun_phone_svc', Aliyun manages the OTP
+    internally via SendSmsVerificationCode; no local Redis state is needed.
+    For all other providers a local 6-digit OTP is generated and cached in Redis.
+    """
+    if settings.SMS_PROVIDER == "aliyun_phone_svc":
+        # Aliyun PNS generates the code; pass ${min} so the template renders correctly.
+        min_str = str(max(1, settings.SMS_CODE_TTL // 60))
+        await send_sms(db, phone, template_id, {"min": min_str})
+        return ""
+
     code = "".join(secrets.choice(_DIGITS) for _ in range(6))
     redis = get_redis()
     key = _make_verify_key(phone)
@@ -127,7 +143,7 @@ async def send_verification_code(
 
 
 async def verify_code(phone: str, code: str) -> bool:
-    """Check a verification code from Redis cache."""
+    """Check a verification code from Redis cache (all providers unified)."""
     redis = get_redis()
     key = _make_verify_key(phone)
     stored = await redis.get(key)

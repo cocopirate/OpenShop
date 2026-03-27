@@ -34,6 +34,12 @@ class Settings(BaseSettings):
     ALIYUN_SMS_SIGN_NAME: str = ""
     ALIYUN_SMS_ENDPOINT: str = "dysmsapi.aliyuncs.com"
 
+    # SMS providers – Aliyun Phone Number Service (号码认证服务 / PNS)
+    ALIYUN_PHONE_SVC_ACCESS_KEY_ID: str = ""
+    ALIYUN_PHONE_SVC_ACCESS_KEY_SECRET: str = ""
+    ALIYUN_PHONE_SVC_SIGN_NAME: str = ""
+    ALIYUN_PHONE_SVC_ENDPOINT: str = "dypnsapi.aliyuncs.com"
+
     # SMS providers – Tencent Cloud
     TENCENT_SECRET_ID: str = ""
     TENCENT_SECRET_KEY: str = ""

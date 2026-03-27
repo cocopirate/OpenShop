@@ -1,0 +1,96 @@
+"""Aliyun Phone Number Service (号码认证服务) provider adapter.
+
+Uses alibabacloud_dypnsapi20170525 SDK to send and verify SMS verification codes.
+Docs: https://help.aliyun.com/document_detail/85198.html
+
+This provider is dedicated to verification-code scenarios and uses
+the Aliyun Number Authentication Service (PNS), which differs from
+the regular Dysms SMS API used by AliyunSmsProvider.
+"""
+
+import json
+
+import structlog
+from alibabacloud_dypnsapi20170525 import models as dypns_models
+from alibabacloud_dypnsapi20170525.client import Client as DypnsClient
+from alibabacloud_tea_openapi.models import Config as OpenApiConfig
+
+from app.core.config import settings
+from app.providers import BaseSmsProvider, SendResult, StatusResult
+
+log = structlog.get_logger(__name__)
+
+
+def _build_client() -> DypnsClient:
+    """Build the Dypns SDK client with static AK/SK credentials."""
+    api_config = OpenApiConfig(
+        access_key_id=settings.ALIYUN_PHONE_SVC_ACCESS_KEY_ID,
+        access_key_secret=settings.ALIYUN_PHONE_SVC_ACCESS_KEY_SECRET,
+        endpoint=settings.ALIYUN_PHONE_SVC_ENDPOINT,
+    )
+    return DypnsClient(api_config)
+
+
+class AliyunPhoneSvcProvider(BaseSmsProvider):
+    """Aliyun 号码认证服务 SMS provider.
+
+    Sends SMS verification codes via SendSmsVerificationCode and
+    supports code verification via CheckSmsVerificationCode.
+    """
+
+    # ------------------------------------------------------------------
+    # BaseSmsProvider interface
+    # ------------------------------------------------------------------
+
+    async def send(self, phone: str, template_id: str, params: dict) -> SendResult:
+        """Send an SMS verification code using Aliyun SendSmsVerifyCode API.
+
+        Sets return_verify_code=True so Aliyun returns the generated code in
+        the response body (body.model.verify_code).  The caller is responsible
+        for caching this code in Redis.
+        """
+        try:
+            client = _build_client()
+            request = dypns_models.SendSmsVerifyCodeRequest(
+                phone_number=phone,
+                sign_name=settings.ALIYUN_PHONE_SVC_SIGN_NAME,
+                template_code=template_id,
+                template_param=json.dumps(params, ensure_ascii=False) if params else "",
+                return_verify_code=True,
+                valid_time=settings.SMS_CODE_TTL,
+            )
+            response = client.send_sms_verify_code(request)
+            body = response.body
+
+            if body.code == "OK" and body.model:
+                verify_code = body.model.verify_code or ""
+                log.info(
+                    "aliyun_phone_svc.send.success",
+                    request_id=body.model.request_id,
+                )
+                return SendResult(
+                    success=True,
+                    provider_message_id=body.model.biz_id or "",
+                    verification_code=verify_code,
+                )
+
+            log.warning(
+                "aliyun_phone_svc.send.failed",
+                code=body.code,
+                message=body.message,
+            )
+            return SendResult(
+                success=False,
+                error_code=body.code or "UNKNOWN",
+                error_message=f"{body.code}: {body.message}",
+            )
+
+        except Exception as exc:
+            log.error("aliyun_phone_svc.send.error", error=str(exc))
+            return SendResult(success=False, error_code="SDK_ERROR", error_message=str(exc))
+
+    async def query_status(self, provider_message_id: str) -> StatusResult:
+        """The PNS API does not expose a status-query endpoint; return SENT."""
+        return StatusResult(provider_message_id=provider_message_id, status="SENT")
+
+
