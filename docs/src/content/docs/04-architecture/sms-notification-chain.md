@@ -1,49 +1,10 @@
-# 架构设计文档
+---
+title: 短信通知链路
+---
 
-## 1. 整体架构
+本文以"发送短信验证码 / 订单通知"为例，说明 Client → BFF → API Gateway → notification-service → sms-service → 供应商的完整调用链路。
 
-OpenShop 采用微服务架构，各服务职责单一，通过 Kubernetes DNS 进行服务发现，通过 RabbitMQ 进行异步事件驱动通信。
-
-## 2. 分层设计
-
-### 入口层
-- **API Gateway（:8080）**：统一流量入口，负责 JWT 鉴权、限流、路由转发。
-- **App BFF（:8090）**：聚合移动端所需接口，减少客户端请求次数。
-- **Admin BFF（:8091）**：聚合管理后台所需接口，支持 RBAC 权限控制。
-
-### 编排层
-- **Order Orchestration（:8100）**：使用 Saga 模式编排订单创建的分布式事务，确保数据一致性。
-
-### 领域服务层
-各领域服务独立部署，拥有自己的 PostgreSQL Schema，遵循 Database per Service 模式。
-
-### 能力服务层
-提供与业务无关的技术能力（短信、隐私号），供上层服务调用。
-
-## 3. 通信模式
-
-| 场景 | 模式 | 技术 |
-|------|------|------|
-| 同步查询 | 请求/响应 | HTTP (httpx) |
-| 异步事件 | 发布/订阅 | RabbitMQ |
-| 缓存 | 旁路缓存 | Redis |
-| 搜索 | 全文检索 | Elasticsearch |
-
-## 4. 服务发现
-
-使用 Kubernetes 原生 DNS，服务通过 `{service-name}.{namespace}.svc.cluster.local` 相互访问，无需额外注册中心。
-
-## 5. 配置管理
-
-- 非敏感配置：Kubernetes ConfigMap
-- 敏感配置（DB 密码、API Key）：Kubernetes Secret
-- 本地开发：`.env` 文件（由 pydantic-settings 读取）
-
-## 6. 用例：短信通知链路
-
-本节以"发送短信验证码 / 订单通知"为例，说明 Client → BFF → API Gateway → notification-service → sms-service → 供应商的完整调用链路。
-
-### 6.1 链路全景
+## 链路全景
 
 ```
 Client（App / Web）
@@ -70,7 +31,7 @@ sms-service（:8010）           ── 能力层
    └── 创蓝（smssh1.253.com）
 ```
 
-### 6.2 请求示例
+## 请求示例
 
 **① App 调用 BFF**
 
@@ -130,7 +91,7 @@ Content-Type: application/json
 }
 ```
 
-### 6.3 关键设计决策
+## 关键设计决策
 
 | 关注点 | 方案 |
 |--------|------|
@@ -141,7 +102,7 @@ Content-Type: application/json
 | **隐私保护** | 手机号在日志中脱敏（`138****8000`）；数据库仅存储脱敏后的 `phone_masked` 用于查询 |
 | **数据保留** | `SMS_RECORDS_RETENTION_DAYS`（默认 90 天）定期清理历史记录 |
 
-### 6.4 供应商切换
+## 供应商切换
 
 sms-service 支持运行时通过环境变量切换供应商，无需重新部署代码：
 
@@ -152,4 +113,3 @@ SMS_PROVIDER_FALLBACK=chuanglan
 SMS_PROVIDER_FAILURE_THRESHOLD=3      # 连续失败 3 次触发熔断
 SMS_PROVIDER_RECOVERY_TIMEOUT=60      # 60 秒后尝试恢复
 ```
-

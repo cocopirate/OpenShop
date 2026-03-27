@@ -30,4 +30,4 @@ admin-service（:8012）负责管理后台主体数据与 RBAC 能力：
 - [API 参考](api.md)
 - [数据模型](schema.md)
 - [管理员接口参考](../../03-api-reference/users.md)
-- [权限设计](../../admin-rbac.md)
+- [权限设计](rbac)

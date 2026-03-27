@@ -1,4 +1,6 @@
-# Admin RBAC 权限系统设计文档
+---
+title: Admin RBAC 权限系统
+---
 
 > OpenShop 管理后台 — 基于角色的访问控制（RBAC）完整技术设计
 
@@ -300,7 +302,3 @@ Redis: SET user_status:{uid} "disabled"
 ### 数据权限
 
 在 Permission 表增加 `data_scope` 字段（all / dept / self），配合请求上下文注入数据过滤条件，实现行级权限控制。
-
----
-
-*文档版本：v1.0 | 最后更新：2024*
