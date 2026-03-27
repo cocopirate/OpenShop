@@ -40,7 +40,7 @@ def _get_client_ip(request: Request) -> str:
 
 
 @router.post(
-    "/sms/send",
+    "/send",
     response_model=SmsSendResponse,
     status_code=status.HTTP_201_CREATED,
     summary="发送短信",
@@ -101,7 +101,7 @@ async def send_sms_endpoint(
 
 
 @router.post(
-    "/sms/send-code",
+    "/send-code",
     status_code=status.HTTP_201_CREATED,
     summary="发送验证码短信",
 )
@@ -149,7 +149,7 @@ async def send_code_endpoint(
 
 
 @router.get(
-    "/sms/records",
+    "/records",
     response_model=SmsRecordListResponse,
     summary="查询发送记录（支持手机号/时间/状态过滤 + 分页）",
 )
@@ -167,11 +167,16 @@ async def get_sms_records_endpoint(
     records, total = await get_sms_records(
         db, phone=phone, start_time=start_time, end_time=end_time, status=status, page=page, size=size
     )
-    return SmsRecordListResponse(total=total, page=page, size=size, items=records)
+    return SmsRecordListResponse(
+        total=total,
+        page=page,
+        size=size,
+        items=[SmsRecordOut.model_validate(r) for r in records],
+    )
 
 
 @router.post(
-    "/sms/verify",
+    "/verify",
     response_model=SmsVerifyResponse,
     summary="验证短信验证码",
 )

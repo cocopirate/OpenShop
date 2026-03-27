@@ -247,7 +247,7 @@ def _make_app():
     from app.api.v1.admin import admin_router
 
     app = FastAPI()
-    app.include_router(admin_router, prefix="/api/v1")
+    app.include_router(admin_router, prefix="/api/sms")
     return app
 
 
@@ -257,7 +257,7 @@ async def test_admin_get_config_endpoint():
 
     app = _make_app()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get("/api/v1/admin/sms/config")
+        resp = await client.get("/api/sms/admin/config")
     assert resp.status_code == 200
     data = resp.json()
     assert "sms_provider" in data
@@ -273,7 +273,7 @@ async def test_admin_update_config_endpoint():
     app = _make_app()
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            resp = await client.put("/api/v1/admin/sms/config", json={"sms_code_ttl": 120})
+            resp = await client.put("/api/sms/admin/config", json={"sms_code_ttl": 120})
         assert resp.status_code == 200
         assert resp.json()["sms_code_ttl"] == 120
     finally:
@@ -297,7 +297,7 @@ async def test_admin_delete_record_not_found():
     app.dependency_overrides[get_db] = _override_db
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.delete("/api/v1/admin/sms/records/9999")
+        resp = await client.delete("/api/sms/admin/records/9999")
     assert resp.status_code == 404
 
 
@@ -318,7 +318,7 @@ async def test_admin_delete_template_not_found():
     app.dependency_overrides[get_db] = _override_db
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.delete("/api/v1/admin/sms/templates/9999")
+        resp = await client.delete("/api/sms/admin/templates/9999")
     assert resp.status_code == 404
 
 
@@ -339,5 +339,5 @@ async def test_admin_get_template_not_found():
     app.dependency_overrides[get_db] = _override_db
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get("/api/v1/admin/sms/templates/9999")
+        resp = await client.get("/api/sms/admin/templates/9999")
     assert resp.status_code == 404

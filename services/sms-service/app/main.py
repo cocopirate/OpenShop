@@ -58,8 +58,8 @@ app = FastAPI(
 from app.core.tracing import configure_tracing
 configure_tracing(app)
 
-app.include_router(v1_router, prefix="/api/v1", tags=["sms"])
-app.include_router(admin_router, prefix="/api/v1", tags=["admin"])
+app.include_router(v1_router, prefix="/api/sms", tags=["sms"])
+app.include_router(admin_router, prefix="/api/sms", tags=["admin"])
 
 metrics_app = make_asgi_app()
 app.mount("/metrics", metrics_app)

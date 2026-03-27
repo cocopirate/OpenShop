@@ -1,6 +1,6 @@
 """Admin endpoints for SMS management (records, templates, configuration).
 
-These routes are prefixed with `/api/v1/admin` and are intended to be called
+These routes are prefixed with `/api/sms/admin` and are intended to be called
 only by authenticated admin users. Authentication / authorisation is enforced
 by the API Gateway (e.g. role-based access control) before requests reach this
 service.
@@ -17,6 +17,7 @@ from app.schemas.sms import (
     SmsConfigOut,
     SmsConfigUpdate,
     SmsRecordListResponse,
+    SmsRecordOut,
     SmsTemplateCreate,
     SmsTemplateListResponse,
     SmsTemplateOut,
@@ -47,7 +48,7 @@ _MAX_PAGE_SIZE = 100
 
 
 @admin_router.get(
-    "/sms/records",
+    "/records",
     response_model=SmsRecordListResponse,
     summary="【管理】查询短信发送记录",
     description=(
@@ -69,11 +70,16 @@ async def admin_get_sms_records(
     records, total = await get_sms_records(
         db, phone=phone, start_time=start_time, end_time=end_time, status=status, page=page, size=size
     )
-    return SmsRecordListResponse(total=total, page=page, size=size, items=records)
+    return SmsRecordListResponse(
+        total=total,
+        page=page,
+        size=size,
+        items=[SmsRecordOut.model_validate(r) for r in records],
+    )
 
 
 @admin_router.delete(
-    "/sms/records/{record_id}",
+    "/records/{record_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="【管理】删除短信发送记录",
     description="根据记录 ID 删除单条短信发送记录。",
@@ -96,7 +102,7 @@ async def admin_delete_sms_record(
 
 
 @admin_router.get(
-    "/sms/templates",
+    "/templates",
     response_model=SmsTemplateListResponse,
     summary="【管理】查询短信模板列表",
     description="支持按供应商（provider）和启用状态（is_active）过滤，分页返回。",
@@ -111,11 +117,16 @@ async def admin_list_templates(
     if size > _MAX_PAGE_SIZE:
         size = _MAX_PAGE_SIZE
     templates, total = await list_templates(db, provider=provider, is_active=is_active, page=page, size=size)
-    return SmsTemplateListResponse(total=total, page=page, size=size, items=templates)
+    return SmsTemplateListResponse(
+        total=total,
+        page=page,
+        size=size,
+        items=[SmsTemplateOut.model_validate(t) for t in templates],
+    )
 
 
 @admin_router.post(
-    "/sms/templates",
+    "/templates",
     response_model=SmsTemplateOut,
     status_code=status.HTTP_201_CREATED,
     summary="【管理】创建短信模板",
@@ -131,7 +142,7 @@ async def admin_create_template(
 
 
 @admin_router.get(
-    "/sms/templates/{template_id}",
+    "/templates/{template_id}",
     response_model=SmsTemplateOut,
     summary="【管理】查询短信模板详情",
     description="根据模板 ID 获取单条短信模板详情。",
@@ -150,7 +161,7 @@ async def admin_get_template(
 
 
 @admin_router.put(
-    "/sms/templates/{template_id}",
+    "/templates/{template_id}",
     response_model=SmsTemplateOut,
     summary="【管理】更新短信模板",
     description="局部更新短信模板字段（name / content / provider / is_active）。",
@@ -171,7 +182,7 @@ async def admin_update_template(
 
 
 @admin_router.delete(
-    "/sms/templates/{template_id}",
+    "/templates/{template_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="【管理】删除短信模板",
     description="根据模板 ID 删除短信模板记录。",
@@ -195,7 +206,7 @@ async def admin_delete_template(
 
 
 @admin_router.get(
-    "/sms/config",
+    "/config",
     response_model=SmsConfigOut,
     summary="【管理】查询短信服务配置",
     description=(
@@ -208,7 +219,7 @@ async def admin_get_config():
 
 
 @admin_router.put(
-    "/sms/config",
+    "/config",
     response_model=SmsConfigOut,
     summary="【管理】更新短信服务配置",
     description=(

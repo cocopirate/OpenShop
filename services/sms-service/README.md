@@ -25,41 +25,41 @@ sms-service/
 
 | 接口 | 方法 | 说明 |
 |------|------|------|
-| `POST /api/v1/sms/send` | POST | 发送短信 |
-| `POST /api/v1/sms/send-code` | POST | 发送验证码短信 |
-| `GET  /api/v1/sms/records` | GET | 查询发送记录（手机号/时间/状态过滤 + 分页） |
-| `POST /api/v1/sms/verify` | POST | 验证短信验证码 |
+| `POST /api/sms/send` | POST | 发送短信 |
+| `POST /api/sms/send-code` | POST | 发送验证码短信 |
+| `GET  /api/sms/records` | GET | 查询发送记录（手机号/时间/状态过滤 + 分页） |
+| `POST /api/sms/verify` | POST | 验证短信验证码 |
 | `GET  /health` | GET | 服务健康检查（含 DB / Redis 连通性） |
 | `GET  /health/ready` | GET | K8s Readiness Probe |
 
 ## 管理后台接口（Admin API）
 
-> 以下接口前缀为 `/api/v1/admin`，仅限管理员调用。鉴权由 API Gateway 的 RBAC 层负责，
+> 以下接口前缀为 `/api/sms/admin`，仅限管理员调用。鉴权由 API Gateway 的 RBAC 层负责，
 > 请求到达 sms-service 前须通过角色验证。
 
 ### 发送记录管理
 
 | 接口 | 方法 | 说明 |
 |------|------|------|
-| `GET  /api/v1/admin/sms/records` | GET | 查询短信发送记录（支持手机号/时间/状态过滤 + 分页） |
-| `DELETE /api/v1/admin/sms/records/{id}` | DELETE | 删除指定发送记录 |
+| `GET  /api/sms/admin/records` | GET | 查询短信发送记录（支持手机号/时间/状态过滤 + 分页） |
+| `DELETE /api/sms/admin/records/{id}` | DELETE | 删除指定发送记录 |
 
 ### 短信模板管理
 
 | 接口 | 方法 | 说明 |
 |------|------|------|
-| `GET  /api/v1/admin/sms/templates` | GET | 查询模板列表（支持供应商/状态过滤 + 分页） |
-| `POST /api/v1/admin/sms/templates` | POST | 创建短信模板 |
-| `GET  /api/v1/admin/sms/templates/{id}` | GET | 获取模板详情 |
-| `PUT  /api/v1/admin/sms/templates/{id}` | PUT | 更新短信模板 |
-| `DELETE /api/v1/admin/sms/templates/{id}` | DELETE | 删除短信模板 |
+| `GET  /api/sms/admin/templates` | GET | 查询模板列表（支持供应商/状态过滤 + 分页） |
+| `POST /api/sms/admin/templates` | POST | 创建短信模板 |
+| `GET  /api/sms/admin/templates/{id}` | GET | 获取模板详情 |
+| `PUT  /api/sms/admin/templates/{id}` | PUT | 更新短信模板 |
+| `DELETE /api/sms/admin/templates/{id}` | DELETE | 删除短信模板 |
 
 ### 短信配置管理
 
 | 接口 | 方法 | 说明 |
 |------|------|------|
-| `GET  /api/v1/admin/sms/config` | GET | 查询当前短信服务配置（供应商、限频、熔断器参数等） |
-| `PUT  /api/v1/admin/sms/config` | PUT | 动态更新短信服务配置（运行时生效，重启后恢复至环境变量值） |
+| `GET  /api/sms/admin/config` | GET | 查询当前短信服务配置（供应商、限频、熔断器参数等） |
+| `PUT  /api/sms/admin/config` | PUT | 动态更新短信服务配置（运行时生效，重启后恢复至环境变量値） |
 
 ## 数据模型
 
