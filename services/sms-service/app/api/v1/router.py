@@ -106,6 +106,7 @@ async def send_sms_endpoint(
     "/send-code",
     status_code=status.HTTP_201_CREATED,
     summary="发送验证码短信",
+    tags=["public"],
 )
 async def send_code_endpoint(
     phone: str,

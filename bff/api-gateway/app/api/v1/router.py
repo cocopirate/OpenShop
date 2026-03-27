@@ -3,7 +3,8 @@ from fastapi.responses import JSONResponse
 import httpx
 import structlog
 
-from app.core.auth import PUBLIC_PATHS, verify_request
+from app.core.auth import verify_request
+from app.core.public_routes import public_routes_registry
 from app.core.config import settings
 from app.core.response import (
     ROUTE_NOT_FOUND,
@@ -42,13 +43,7 @@ async def proxy(request: Request, path: str):
     method = request.method
 
     # Check if this is a public path (skip auth)
-    is_public = False
-    for pub_method, pub_path in PUBLIC_PATHS:
-        if method == pub_method and (full_path == pub_path or full_path.startswith(pub_path + "/")):
-            is_public = True
-            break
-
-    if not is_public:
+    if not public_routes_registry.is_public(method, full_path):
         await verify_request(request)
 
     # Find upstream service

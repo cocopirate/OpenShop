@@ -41,7 +41,7 @@ from app.services.auth_service import (
 router = APIRouter()
 
 
-@router.post("/consumer/login", summary="Consumer login (phone + password)")
+@router.post("/consumer/login", summary="Consumer login (phone + password)", tags=["public"])
 async def consumer_login(
     body: ConsumerLoginRequest,
     request: Request,
@@ -55,7 +55,7 @@ async def consumer_login(
     )
 
 
-@router.post("/merchant/login", summary="Merchant login (phone + password)")
+@router.post("/merchant/login", summary="Merchant login (phone + password)", tags=["public"])
 async def merchant_login(
     body: MerchantLoginRequest,
     request: Request,
@@ -69,7 +69,7 @@ async def merchant_login(
     )
 
 
-@router.post("/merchant-sub/login", summary="Merchant sub-account login (username + password)")
+@router.post("/merchant-sub/login", summary="Merchant sub-account login (username + password)", tags=["public"])
 async def merchant_sub_login(
     body: MerchantSubLoginRequest,
     request: Request,
@@ -91,7 +91,7 @@ async def merchant_sub_login(
     )
 
 
-@router.post("/staff/login", summary="Staff login (phone + password)")
+@router.post("/staff/login", summary="Staff login (phone + password)", tags=["public"])
 async def staff_login(
     body: StaffLoginRequest,
     request: Request,
@@ -105,7 +105,7 @@ async def staff_login(
     )
 
 
-@router.post("/admin/login", summary="Admin login (username + password)")
+@router.post("/admin/login", summary="Admin login (username + password)", tags=["public"])
 async def admin_login(
     body: AdminLoginRequest,
     request: Request,
@@ -141,7 +141,7 @@ async def logout(request: Request) -> JSONResponse:
     return JSONResponse(content=ok({"message": "logged out"}))
 
 
-@router.post("/register/consumer", summary="Register new consumer credential", status_code=201)
+@router.post("/register/consumer", summary="Register new consumer credential", status_code=201, tags=["public"])
 async def consumer_register(
     body: ConsumerRegisterRequest,
     db: AsyncSession = Depends(get_db),
