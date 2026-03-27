@@ -219,7 +219,27 @@ async def seed_permissions(db) -> list[AdminPermission]:
     return list(code_to_perm.values())
 
 
-async def seed_role(db, permissions: list[AdminPermission]) -> AdminRole:
+async def _upsert_wildcard_perm(db) -> AdminPermission:
+    """超级管理员使用单一通配符权限 perm_code='*'，匹配网关 if '*' not in permissions 逻辑。"""
+    result = await db.execute(
+        select(AdminPermission).where(AdminPermission.perm_code == "*")
+    )
+    perm = result.scalar_one_or_none()
+    if perm is None:
+        perm = AdminPermission(
+            perm_code="*",
+            perm_name="全部权限（超级管理员）",
+            perm_type=3,
+            path="*",
+            method="*",
+            parent_id=0,
+        )
+        db.add(perm)
+        await db.flush()
+    return perm
+
+
+async def seed_role(db, permissions: list[AdminPermission]) -> AdminRole:  # noqa: ARG001
     role_code = os.getenv("INIT_ADMIN_ROLE_CODE", "super_admin")
     role_name = os.getenv("INIT_ADMIN_ROLE_NAME", "超级管理员")
 
@@ -240,14 +260,14 @@ async def seed_role(db, permissions: list[AdminPermission]) -> AdminRole:
         role.is_system = 1
         role.status = 1
 
-    # 避免 AsyncSession 下关系懒加载，直接维护关联表
+    # 超级管理员只挂单一通配符权限，避免硬编码全量权限列表
+    wildcard = await _upsert_wildcard_perm(db)
     await db.execute(
         admin_role_permission.delete().where(admin_role_permission.c.role_id == role.id)
     )
-    for perm in permissions:
-        await db.execute(
-            admin_role_permission.insert().values(role_id=role.id, permission_id=perm.id)
-        )
+    await db.execute(
+        admin_role_permission.insert().values(role_id=role.id, permission_id=wildcard.id)
+    )
 
     await db.flush()
     return role

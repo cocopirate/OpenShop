@@ -46,7 +46,7 @@ def _get_client_ip(request: Request) -> str:
 
 async def _get_auth_version(redis: Redis, biz_id: int, account_type: int) -> int:
     """Get or initialise the auth version counter for token invalidation."""
-    ver_key = f"auth_ver:{biz_id}:{account_type}"
+    ver_key = f"user_perm_ver:{biz_id}"
     ver = await redis.get(ver_key)
     if ver is None:
         await redis.set(ver_key, 0, ex=AUTH_VERSION_TTL_SECONDS)
@@ -118,6 +118,7 @@ async def login_consumer(
     ver = await _get_auth_version(redis, cred.biz_id, ACCOUNT_CONSUMER)
     token = create_access_token({
         "sub": str(cred.biz_id),
+        "uid": str(cred.biz_id),
         "account_type": "consumer",
         "ver": ver,
     })
@@ -153,6 +154,7 @@ async def login_merchant(
     ver = await _get_auth_version(redis, cred.biz_id, ACCOUNT_MERCHANT)
     token = create_access_token({
         "sub": str(cred.biz_id),
+        "uid": str(cred.biz_id),
         "account_type": "merchant",
         "merchant_id": str(cred.biz_id),
         "ver": ver,
@@ -192,6 +194,7 @@ async def login_merchant_sub(
     ver = await _get_auth_version(redis, cred.biz_id, ACCOUNT_MERCHANT_SUB)
     token = create_access_token({
         "sub": str(cred.biz_id),
+        "uid": str(cred.biz_id),
         "account_type": "merchant_sub",
         "merchant_id": merchant_id,
         "permissions": permissions,
@@ -232,6 +235,7 @@ async def login_staff(
     ver = await _get_auth_version(redis, cred.biz_id, ACCOUNT_STAFF)
     token = create_access_token({
         "sub": str(cred.biz_id),
+        "uid": str(cred.biz_id),
         "account_type": "merchant_staff",
         "merchant_id": merchant_id,
         "store_id": store_id,
@@ -253,7 +257,7 @@ async def login_admin(
     request: Request,
     username: str,
     password: str,
-) -> tuple[str, list[str]]:
+) -> str:
     ip = _get_client_ip(request)
     device_info = request.headers.get("User-Agent")
 
@@ -273,12 +277,13 @@ async def login_admin(
     ver = await _get_auth_version(redis, cred.biz_id, ACCOUNT_ADMIN)
     token = create_access_token({
         "sub": str(cred.biz_id),
+        "uid": str(cred.biz_id),
         "account_type": "admin",
         "permissions": permissions,
         "ver": ver,
     })
     await _log_attempt(db, cred.biz_id, ACCOUNT_ADMIN, ip, device_info, 1)
-    return token, permissions
+    return token
 
 
 # --------------------------------------------------------------------------- #
@@ -317,18 +322,12 @@ async def logout_token(redis: Redis, token_payload: dict) -> None:
     biz_id = token_payload.get("sub")
     account_type_str = token_payload.get("account_type", "")
 
-    _account_type_map = {
-        "consumer": ACCOUNT_CONSUMER,
-        "merchant": ACCOUNT_MERCHANT,
-        "merchant_sub": ACCOUNT_MERCHANT_SUB,
-        "merchant_staff": ACCOUNT_STAFF,
-        "admin": ACCOUNT_ADMIN,
-    }
-    account_type_int = _account_type_map.get(account_type_str)
-    if biz_id is None or account_type_int is None:
+    if biz_id is None or account_type_str not in {
+        "consumer", "merchant", "merchant_sub", "merchant_staff", "admin"
+    }:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
 
-    ver_key = f"auth_ver:{biz_id}:{account_type_int}"
+    ver_key = f"user_perm_ver:{biz_id}"
     await redis.incr(ver_key)
     await redis.expire(ver_key, AUTH_VERSION_TTL_SECONDS)
 

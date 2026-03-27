@@ -112,10 +112,10 @@ async def admin_login(
     db: AsyncSession = Depends(get_db),
 ) -> JSONResponse:
     redis = get_redis()
-    token, permissions = await login_admin(db, redis, request, body.username, body.password)
+    token = await login_admin(db, redis, request, body.username, body.password)
     return JSONResponse(
         status_code=status.HTTP_200_OK,
-        content=ok(AdminTokenResponse(access_token=token, permissions=permissions).model_dump()),
+        content=ok(AdminTokenResponse(access_token=token).model_dump()),
     )
 
 

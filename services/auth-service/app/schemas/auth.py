@@ -71,7 +71,7 @@ class StaffTokenResponse(BaseModel):
 
 class AdminTokenResponse(BaseModel):
     access_token: str
-    permissions: list[str]
+    token_type: str = "bearer"
 
 
 # --------------------------------------------------------------------------- #
