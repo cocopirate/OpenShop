@@ -1,0 +1,33 @@
+---
+title: OpenShop 文档
+description: OpenShop 微服务电商平台文档
+template: splash
+hero:
+  title: OpenShop
+  tagline: 基于 FastAPI + Python 的微服务电商平台，运行于 Kubernetes，使用云托管 PostgreSQL 与 Redis。
+  actions:
+    - text: 快速开始
+      link: /01-getting-started/quick-start/
+      icon: right-arrow
+    - text: 查看 GitHub
+      link: https://github.com/cocopirate/OpenShop
+      icon: github
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+<CardGrid>
+  <Card title="快速开始" icon="rocket">
+    [快速启动](/01-getting-started/quick-start/) 或 [本地开发](/01-getting-started/local-dev/)
+  </Card>
+  <Card title="架构设计" icon="seti:config">
+    了解 [系统架构总览](/04-architecture/system-overview/) 和 [微服务设计](/04-architecture/microservices/)
+  </Card>
+  <Card title="API 参考" icon="open-book">
+    查看 [认证 API](/03-api-reference/auth/) 和其他服务接口
+  </Card>
+  <Card title="部署指南" icon="laptop">
+    [Kubernetes 部署](/07-deployment/k8s-deploy/) 和 [CI/CD](/07-deployment/ci-cd/)
+  </Card>
+</CardGrid>
