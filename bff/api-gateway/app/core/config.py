@@ -2,7 +2,10 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    model_config = {"env_file": ".env"}
+    model_config = {
+        "env_file": [".env", ".env.local"],
+        "env_file_encoding": "utf-8",
+    }
 
     SERVICE_NAME: str = "api-gateway"
     SERVICE_PORT: int = 8080
@@ -27,6 +30,7 @@ class Settings(BaseSettings):
     LOCATION_SERVICE_URL: str = "http://location-service:8008"
     NOTIFICATION_SERVICE_URL: str = "http://notification-service:8009"
     SMS_SERVICE_URL: str = "http://sms-service:8010"
+    AUTH_SERVICE_URL: str = "http://auth-service:8000"
 
     # Rate limits
     RATE_LIMIT_PER_MINUTE: int = 60
