@@ -41,7 +41,7 @@ kubectl kustomize infra/k8s/overlays/prod
 kubectl get pods -n openshop
 
 # 查看某个服务的日志
-kubectl logs -f deployment/user-service -n openshop
+kubectl logs -f deployment/consumer-service -n openshop
 
 # 查看事件
 kubectl get events -n openshop --sort-by='.lastTimestamp'
@@ -51,15 +51,15 @@ kubectl get events -n openshop --sort-by='.lastTimestamp'
 
 ```bash
 # 触发滚动更新（更新镜像版本）
-kubectl set image deployment/user-service \
-  user-service=openshop/user-service:v1.2.0 \
+kubectl set image deployment/consumer-service \
+  consumer-service=openshop/consumer-service:v1.2.0 \
   -n openshop
 
 # 查看更新进度
-kubectl rollout status deployment/user-service -n openshop
+kubectl rollout status deployment/consumer-service -n openshop
 
 # 回滚
-kubectl rollout undo deployment/user-service -n openshop
+kubectl rollout undo deployment/consumer-service -n openshop
 ```
 
 ## ConfigMap 和 Secret

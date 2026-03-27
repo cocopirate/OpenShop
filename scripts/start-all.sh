@@ -22,7 +22,7 @@ sleep 10
 # Format: "<relative-path>:<port>"
 SERVICES=(
   "orchestration/order-orchestration:8100"
-  "services/user-service:8001"
+  "services/consumer-service:8001"
   "services/merchant-service:8002"
   "services/product-service:8003"
   "services/inventory-service:8004"

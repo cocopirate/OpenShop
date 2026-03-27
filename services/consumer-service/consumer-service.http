@@ -1,7 +1,7 @@
-# user-service API 接口验证
+# consumer-service API 接口验证
 # 使用 VS Code REST Client 插件运行 (humao.rest-client)
 #
-# 直连 user-service:    @baseUrl = http://127.0.0.1:8001
+# 直连 consumer-service:    @baseUrl = http://127.0.0.1:8001
 # 经 API Gateway 访问:  @baseUrl = http://127.0.0.1:8080
 
 @baseUrl = http://127.0.0.1:8001

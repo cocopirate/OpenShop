@@ -22,7 +22,7 @@
    uvicorn app.main:app --reload --port 8001
    
    # Kubernetes
-   kubectl logs -f deployment/user-service -n openshop
+   kubectl logs -f deployment/consumer-service -n openshop
    ```
 
 ## 数据库连接失败
@@ -82,10 +82,10 @@ echo "eyJhbGci..." | cut -d. -f2 | base64 -d
 kubectl get pods -n openshop
 
 # 查看崩溃日志（最近的日志）
-kubectl logs user-service-6d4b9f5-xyz -n openshop --previous
+kubectl logs consumer-service-6d4b9f5-xyz -n openshop --previous
 
 # 查看 Pod 详情（查看事件）
-kubectl describe pod user-service-6d4b9f5-xyz -n openshop
+kubectl describe pod consumer-service-6d4b9f5-xyz -n openshop
 ```
 
 常见原因：

@@ -23,10 +23,10 @@ source .venv/bin/activate  # Linux/macOS
 
 ### 3. 安装依赖
 
-每个服务有独立的 `requirements.txt`，以 user-service 为例：
+每个服务有独立的 `requirements.txt`，以 consumer-service 为例：
 
 ```bash
-cd services/user-service
+cd services/consumer-service
 uv pip install -r requirements.txt
 ```
 
@@ -49,7 +49,7 @@ DEBUG=true
 ### 5. 单独启动某个服务
 
 ```bash
-cd services/user-service
+cd services/consumer-service
 uvicorn app.main:app --reload --port 8001
 ```
 
@@ -58,7 +58,7 @@ uvicorn app.main:app --reload --port 8001
 项目使用 Alembic 管理数据库迁移：
 
 ```bash
-cd services/user-service
+cd services/consumer-service
 
 # 生成迁移文件
 alembic revision --autogenerate -m "add user table"
@@ -73,7 +73,7 @@ alembic downgrade -1
 ## 运行测试
 
 ```bash
-cd services/user-service
+cd services/consumer-service
 
 # 运行所有测试
 pytest

@@ -6,7 +6,9 @@
 
 每个微服务对应一个独立的业务域（限界上下文），域内数据高内聚，域间通过 API 或事件低耦合：
 
-- user-service：用户域（客户 + 管理员）
+- consumer-service：消费者用户域
+- admin-service：管理员与 RBAC 域
+- auth-service：认证与令牌域
 - merchant-service：商家域
 - product-service：商品域
 - order-service：订单域

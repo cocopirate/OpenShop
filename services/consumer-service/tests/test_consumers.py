@@ -1,4 +1,4 @@
-"""Tests for user-service consumer endpoints."""
+"""Tests for consumer-service consumer endpoints."""
 from __future__ import annotations
 
 import os

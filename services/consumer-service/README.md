@@ -201,7 +201,7 @@ Redis SET user_status:{uid} "disabled"
 ## 目录结构 / Directory Structure
 
 ```
-user-service/
+consumer-service/
 ├── app/
 │   ├── api/v1/           # API 路由
 │   │   ├── auth.py       # 认证接口

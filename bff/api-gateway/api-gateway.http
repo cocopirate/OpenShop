@@ -3,7 +3,7 @@
 
 @baseUrl = http://127.0.0.1:8080
 @adminToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiI3YzE4MWQ3Yi00MjI0LTQxODktOTEzMi1mOWE4ZmM1OGEzNzMiLCJ1c2VybmFtZSI6ImFkbWluIiwicm9sZXMiOlsic3VwZXJhZG1pbiJdLCJwZXJtaXNzaW9ucyI6WyIqIl0sInN0YXR1cyI6ImFjdGl2ZSIsInZlciI6MCwiZXhwIjoxNzc0NDM0MDcwfQ.wsTYMXmH2DYS3q7222oC1lf8DWj9GRHiHZ_sVKnxgSg
-@adminId = 7c181d7b-4224-4189-9132-f9a8fc58a373
+@adminId = 1
 
 ###############################################################
 # 网关自身 - 健康检查（无需鉴权）
@@ -19,7 +19,7 @@ GET {{baseUrl}}/health/ready
 
 
 ###############################################################
-# user-service - 认证（无需鉴权）
+# auth-service - 认证（无需鉴权）
 ###############################################################
 
 # @name adminLogin
@@ -51,23 +51,23 @@ Authorization: Bearer {{adminToken}}
 
 
 ###############################################################
-# user-service - 用户管理
+# admin-service - 管理员管理
 ###############################################################
 
 # @name listUsers
-GET {{baseUrl}}/api/users
+GET {{baseUrl}}/api/admins
 Authorization: Bearer {{adminToken}}
 
 ###
 
 # @name getUser
-GET {{baseUrl}}/api/users/7c181d7b-4224-4189-9132-f9a8fc58a373
+GET {{baseUrl}}/api/admins/{{adminId}}
 Authorization: Bearer {{adminToken}}
 
 ###
 
 # @name createUser
-POST {{baseUrl}}/api/users
+POST {{baseUrl}}/api/admins
 Authorization: Bearer {{adminToken}}
 Content-Type: application/json
 
@@ -80,7 +80,7 @@ Content-Type: application/json
 ###
 
 # @name updateUser
-PUT {{baseUrl}}/api/users/{{adminId}}
+PUT {{baseUrl}}/api/admins/{{adminId}}
 Authorization: Bearer {{adminToken}}
 Content-Type: application/json
 
@@ -91,7 +91,7 @@ Content-Type: application/json
 ###
 
 # @name updateUserStatus
-POST {{baseUrl}}/api/users/{{adminId}}/status
+POST {{baseUrl}}/api/admins/{{adminId}}/status
 Authorization: Bearer {{adminToken}}
 Content-Type: application/json
 
@@ -102,7 +102,7 @@ Content-Type: application/json
 ###
 
 # @name assignRolesToUser
-POST {{baseUrl}}/api/users/{{adminId}}/roles
+POST {{baseUrl}}/api/admins/{{adminId}}/roles
 Authorization: Bearer {{adminToken}}
 Content-Type: application/json
 
@@ -113,12 +113,12 @@ Content-Type: application/json
 ###
 
 # @name deleteUser
-DELETE {{baseUrl}}/api/users/{{adminId}}
+DELETE {{baseUrl}}/api/admins/{{adminId}}
 Authorization: Bearer {{adminToken}}
 
 
 ###############################################################
-# user-service - 角色管理
+# admin-service - 角色管理
 ###############################################################
 
 # @name listRoles
@@ -173,7 +173,7 @@ Authorization: Bearer {{adminToken}}
 
 
 ###############################################################
-# user-service - 权限管理
+# admin-service - 权限管理
 ###############################################################
 
 # @name listPermissions

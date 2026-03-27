@@ -14,10 +14,10 @@
 2. [安全加密说明](#安全加密说明)
 3. [路由规则](#路由规则)
 4. [健康检查](#健康检查)
-5. [认证 Auth（转发至 user-service）](#认证-auth转发至-user-service)
-6. [管理员用户管理（转发至 user-service）](#管理员用户管理转发至-user-service)
-7. [角色管理（转发至 user-service）](#角色管理转发至-user-service)
-8. [权限管理（转发至 user-service）](#权限管理转发至-user-service)
+5. [认证 Auth（转发至 auth-service）](#认证-auth转发至-auth-service)
+6. [管理员用户管理（转发至 admin-service）](#管理员用户管理转发至-admin-service)
+7. [角色管理（转发至 admin-service）](#角色管理转发至-admin-service)
+8. [权限管理（转发至 admin-service）](#权限管理转发至-admin-service)
 9. [通用错误码](#通用错误码)
 
 ---
@@ -84,6 +84,11 @@ Authorization: Bearer <access_token>
 |------|------|
 | POST | /api/auth/login |
 | POST | /api/auth/admin/login |
+| POST | /api/auth/consumer/login |
+| POST | /api/auth/merchant/login |
+| POST | /api/auth/merchant-sub/login |
+| POST | /api/auth/staff/login |
+| POST | /api/auth/register/consumer |
 | GET | /health |
 | GET | /health/ready |
 | GET | /metrics |
@@ -315,10 +320,11 @@ def decrypt_response(envelope_json: str, aes_key: bytes) -> bytes:
 
 | 路径前缀 | 上游服务 | 端口 |
 |---------|---------|------|
-| `/api/auth/**` | user-service | 8001 |
-| `/api/users/**` | user-service | 8001 |
-| `/api/roles/**` | user-service | 8001 |
-| `/api/permissions/**` | user-service | 8001 |
+| `/api/auth/**` | auth-service | 8000 |
+| `/api/admins/**` | admin-service | 8012 |
+| `/api/roles/**` | admin-service | 8012 |
+| `/api/permissions/**` | admin-service | 8012 |
+| `/api/v1/users/**` | consumer-service | 8001 |
 | `/api/v1/merchants/**` | merchant-service | 8002 |
 | `/api/v1/products/**` | product-service | 8003 |
 | `/api/v1/inventory/**` | inventory-service | 8004 |
@@ -388,7 +394,7 @@ curl http://localhost:8080/health/ready
 
 ---
 
-## 认证 Auth（转发至 user-service）
+## 认证 Auth（转发至 auth-service）
 
 ### POST /api/auth/admin/login
 
@@ -479,9 +485,9 @@ curl -X POST \
 
 ---
 
-## 管理员用户管理（转发至 user-service）
+## 管理员用户管理（转发至 admin-service）
 
-### GET /api/users
+### GET /api/admins
 
 获取管理员用户列表。
 
@@ -490,13 +496,13 @@ curl -X POST \
 **请求示例**
 
 ```http
-GET /api/users HTTP/1.1
+GET /api/admins HTTP/1.1
 Host: localhost:8080
 Authorization: Bearer <access_token>
 ```
 
 ```bash
-curl http://localhost:8080/api/users \
+curl http://localhost:8080/api/admins \
   -H "Authorization: Bearer <access_token>"
 ```
 
@@ -520,7 +526,7 @@ curl http://localhost:8080/api/users \
 
 ---
 
-### POST /api/users
+### POST /api/admins
 
 创建管理员用户。
 
@@ -537,7 +543,7 @@ curl http://localhost:8080/api/users \
 **请求示例**
 
 ```http
-POST /api/users HTTP/1.1
+POST /api/admins HTTP/1.1
 Host: localhost:8080
 Authorization: Bearer <access_token>
 Content-Type: application/json
@@ -551,7 +557,7 @@ Content-Type: application/json
 
 ```bash
 curl -X POST \
-  http://localhost:8080/api/users \
+  http://localhost:8080/api/admins \
   -H "Authorization: Bearer <access_token>" \
   -H "Content-Type: application/json" \
   -d '{"username": "operator01", "password": "Operator@123", "status": "active"}'
@@ -575,7 +581,7 @@ curl -X POST \
 
 ---
 
-### GET /api/users/{user_id}
+### GET /api/admins/{user_id}
 
 获取指定管理员用户详情（`user_id` 为 UUID）。
 
@@ -584,13 +590,13 @@ curl -X POST \
 **请求示例**
 
 ```http
-GET /api/users/7c181d7b-4224-4189-9132-f9a8fc58a373 HTTP/1.1
+GET /api/admins/7c181d7b-4224-4189-9132-f9a8fc58a373 HTTP/1.1
 Host: localhost:8080
 Authorization: Bearer <access_token>
 ```
 
 ```bash
-curl http://localhost:8080/api/users/7c181d7b-4224-4189-9132-f9a8fc58a373 \
+curl http://localhost:8080/api/admins/7c181d7b-4224-4189-9132-f9a8fc58a373 \
   -H "Authorization: Bearer <access_token>"
 ```
 
@@ -612,7 +618,7 @@ curl http://localhost:8080/api/users/7c181d7b-4224-4189-9132-f9a8fc58a373 \
 
 ---
 
-### PUT /api/users/{user_id}
+### PUT /api/admins/{user_id}
 
 更新管理员用户信息。
 
@@ -628,7 +634,7 @@ curl http://localhost:8080/api/users/7c181d7b-4224-4189-9132-f9a8fc58a373 \
 **请求示例**
 
 ```http
-PUT /api/users/7c181d7b-4224-4189-9132-f9a8fc58a373 HTTP/1.1
+PUT /api/admins/7c181d7b-4224-4189-9132-f9a8fc58a373 HTTP/1.1
 Host: localhost:8080
 Authorization: Bearer <access_token>
 Content-Type: application/json
@@ -640,7 +646,7 @@ Content-Type: application/json
 
 ```bash
 curl -X PUT \
-  http://localhost:8080/api/users/7c181d7b-4224-4189-9132-f9a8fc58a373 \
+  http://localhost:8080/api/admins/7c181d7b-4224-4189-9132-f9a8fc58a373 \
   -H "Authorization: Bearer <access_token>" \
   -H "Content-Type: application/json" \
   -d '{"username": "admin_renamed"}'
@@ -664,7 +670,7 @@ curl -X PUT \
 
 ---
 
-### DELETE /api/users/{user_id}
+### DELETE /api/admins/{user_id}
 
 删除管理员用户。
 
@@ -673,14 +679,14 @@ curl -X PUT \
 **请求示例**
 
 ```http
-DELETE /api/users/a1b2c3d4-0000-0000-0000-000000000001 HTTP/1.1
+DELETE /api/admins/a1b2c3d4-0000-0000-0000-000000000001 HTTP/1.1
 Host: localhost:8080
 Authorization: Bearer <access_token>
 ```
 
 ```bash
 curl -X DELETE \
-  http://localhost:8080/api/users/a1b2c3d4-0000-0000-0000-000000000001 \
+  http://localhost:8080/api/admins/a1b2c3d4-0000-0000-0000-000000000001 \
   -H "Authorization: Bearer <access_token>"
 ```
 
@@ -699,7 +705,7 @@ curl -X DELETE \
 
 ---
 
-### POST /api/users/{user_id}/status
+### POST /api/admins/{user_id}/status
 
 启用或禁用管理员账号，立即生效。
 
@@ -714,7 +720,7 @@ curl -X DELETE \
 **请求示例（禁用账号）**
 
 ```http
-POST /api/users/a1b2c3d4-0000-0000-0000-000000000001/status HTTP/1.1
+POST /api/admins/a1b2c3d4-0000-0000-0000-000000000001/status HTTP/1.1
 Host: localhost:8080
 Authorization: Bearer <access_token>
 Content-Type: application/json
@@ -726,7 +732,7 @@ Content-Type: application/json
 
 ```bash
 curl -X POST \
-  http://localhost:8080/api/users/a1b2c3d4-0000-0000-0000-000000000001/status \
+  http://localhost:8080/api/admins/a1b2c3d4-0000-0000-0000-000000000001/status \
   -H "Authorization: Bearer <access_token>" \
   -H "Content-Type: application/json" \
   -d '{"status": "disabled"}'
@@ -750,7 +756,7 @@ curl -X POST \
 
 ---
 
-### POST /api/users/{user_id}/roles
+### POST /api/admins/{user_id}/roles
 
 为管理员用户批量分配角色（全量覆盖）。
 
@@ -765,7 +771,7 @@ curl -X POST \
 **请求示例**
 
 ```http
-POST /api/users/a1b2c3d4-0000-0000-0000-000000000001/roles HTTP/1.1
+POST /api/admins/a1b2c3d4-0000-0000-0000-000000000001/roles HTTP/1.1
 Host: localhost:8080
 Authorization: Bearer <access_token>
 Content-Type: application/json
@@ -777,7 +783,7 @@ Content-Type: application/json
 
 ```bash
 curl -X POST \
-  http://localhost:8080/api/users/a1b2c3d4-0000-0000-0000-000000000001/roles \
+  http://localhost:8080/api/admins/a1b2c3d4-0000-0000-0000-000000000001/roles \
   -H "Authorization: Bearer <access_token>" \
   -H "Content-Type: application/json" \
   -d '{"role_ids": [1, 2]}'
@@ -801,7 +807,7 @@ curl -X POST \
 
 ---
 
-## 角色管理（转发至 user-service）
+## 角色管理（转发至 admin-service）
 
 ### GET /api/roles
 
@@ -1076,7 +1082,7 @@ curl -X POST \
 
 ---
 
-## 权限管理（转发至 user-service）
+## 权限管理（转发至 admin-service）
 
 ### GET /api/permissions
 
@@ -1110,7 +1116,7 @@ curl http://localhost:8080/api/permissions \
       "name": "查看管理员用户",
       "type": "api",
       "method": "GET",
-      "path": "/api/users",
+      "path": "/api/admins",
       "parent_id": null,
       "created_at": "2024-01-01T00:00:00"
     }
@@ -1216,7 +1222,7 @@ curl http://localhost:8080/api/permissions/1 \
     "name": "查看管理员用户",
     "type": "api",
     "method": "GET",
-    "path": "/api/users",
+    "path": "/api/admins",
     "parent_id": null,
     "created_at": "2024-01-01T00:00:00"
   },

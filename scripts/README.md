@@ -47,10 +47,10 @@
 
 ## 单服务手动启动 / Single Service Startup
 
-以 `user-service` 为例，其他服务流程相同（端口号见下表）：
+以 `consumer-service` 为例，其他服务流程相同（端口号见下表）：
 
 ```bash
-cd services/user-service
+cd services/consumer-service
 
 # 1. 安装 uv（如未安装）
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -81,7 +81,7 @@ uvicorn app.main:app --port <PORT> --reload
 |------|------|------|------------|
 | api-gateway | `bff/api-gateway` | 8080 | — |
 | order-orchestration | `orchestration/order-orchestration` | 8100 | — |
-| user-service | `services/user-service` | 8001 | ✅ Alembic |
+| consumer-service | `services/consumer-service` | 8001 | ✅ Alembic |
 | merchant-service | `services/merchant-service` | 8002 | — |
 | product-service | `services/product-service` | 8003 | — |
 | inventory-service | `services/inventory-service` | 8004 | — |

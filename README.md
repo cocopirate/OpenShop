@@ -55,7 +55,7 @@ docker-compose -f infra/docker-compose.yml up -d
 | app-bff | 8090 | 面向 App/小程序的 BFF |
 | admin-bff | 8091 | 面向运营后台的 BFF |
 | order-orchestration | 8100 | 订单流程编排 |
-| user-service | 8001 | 用户管理 |
+| consumer-service | 8001 | 用户管理 |
 | merchant-service | 8002 | 商家管理 |
 | product-service | 8003 | 商品管理 |
 | inventory-service | 8004 | 库存管理 |
@@ -85,7 +85,7 @@ OpenShop/
 ├── orchestration/
 │   └── order-orchestration/ # 订单编排服务
 ├── services/
-│   ├── user-service/
+│   ├── consumer-service/
 │   ├── merchant-service/
 │   ├── product-service/
 │   ├── inventory-service/

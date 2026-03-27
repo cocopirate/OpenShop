@@ -58,6 +58,8 @@ docker-compose -f infra/docker-compose.yml up -d
 | api-gateway | http://localhost:8080/docs |
 | app-bff | http://localhost:8090/docs |
 | admin-bff | http://localhost:8091/docs |
-| user-service | http://localhost:8001/docs |
+| auth-service | http://localhost:8000/docs |
+| admin-service | http://localhost:8012/docs |
+| consumer-service | http://localhost:8001/docs |
 
 详细的本地开发指南请参阅 [本地开发](local-dev.md)。

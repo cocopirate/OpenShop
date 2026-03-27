@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    SERVICE_NAME: str = "user-service"
+    SERVICE_NAME: str = "consumer-service"
     SERVICE_PORT: int = 8001
     DEBUG: bool = False
     ENV: str = "development"

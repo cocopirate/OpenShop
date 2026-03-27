@@ -11,7 +11,7 @@
 | `order.completed` | order-service | promotion-service | 订单完成 |
 | `inventory.locked` | inventory-service | order-orchestration | 库存锁定确认 |
 | `inventory.lock_failed` | inventory-service | order-orchestration | 库存锁定失败 |
-| `customer.registered` | user-service | notification-service | 客户注册 |
+| `customer.registered` | consumer-service | notification-service | 客户注册 |
 | `aftersale.approved` | aftersale-service | notification-service, order-service | 售后审核通过 |
 
 ## 设计原则

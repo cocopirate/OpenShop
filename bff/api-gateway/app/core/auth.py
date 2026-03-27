@@ -10,6 +10,11 @@ from app.core.redis import get_redis
 PUBLIC_PATHS = {
     ("POST", "/api/auth/login"),
     ("POST", "/api/auth/admin/login"),
+    ("POST", "/api/auth/consumer/login"),
+    ("POST", "/api/auth/merchant/login"),
+    ("POST", "/api/auth/merchant-sub/login"),
+    ("POST", "/api/auth/staff/login"),
+    ("POST", "/api/auth/register/consumer"),
     ("GET", "/health"),
     ("GET", "/health/ready"),
     ("GET", "/metrics"),
@@ -17,6 +22,10 @@ PUBLIC_PATHS = {
 
 # Permission map: (method, path_prefix) → permission_code
 PERMISSION_MAP = {
+    ("GET", "/api/admins"): "user:list",
+    ("POST", "/api/admins"): "user:create",
+    ("PUT", "/api/admins"): "user:update",
+    ("DELETE", "/api/admins"): "user:delete",
     ("GET", "/api/users"): "user:list",
     ("POST", "/api/users"): "user:create",
     ("PUT", "/api/users"): "user:update",

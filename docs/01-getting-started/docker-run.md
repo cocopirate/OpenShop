@@ -43,16 +43,16 @@ curl http://localhost:9200/_cluster/health?pretty
 每个服务目录下均有 `Dockerfile`：
 
 ```bash
-# 以 user-service 为例
-cd services/user-service
-docker build -t openshop/user-service:latest .
+# 以 consumer-service 为例
+cd services/consumer-service
+docker build -t openshop/consumer-service:latest .
 
 # 运行容器
 docker run -d \
-  --name user-service \
+  --name consumer-service \
   -p 8001:8001 \
   --env-file ../../.env \
-  openshop/user-service:latest
+  openshop/consumer-service:latest
 ```
 
 ## 停止与清理

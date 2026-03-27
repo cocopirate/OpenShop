@@ -6,7 +6,7 @@ SERVICES=(
   "app-bff:8090"
   "admin-bff:8091"
   "order-orchestration:8100"
-  "user-service:8001"
+  "consumer-service:8001"
   "merchant-service:8002"
   "product-service:8003"
   "inventory-service:8004"

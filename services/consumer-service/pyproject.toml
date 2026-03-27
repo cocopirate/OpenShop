@@ -1,7 +1,7 @@
 [project]
-name = "user-service"
+name = "consumer-service"
 version = "1.0.0"
-description = "User and RBAC service for OpenShop"
+description = "Consumer domain service for OpenShop"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi==0.111.0",

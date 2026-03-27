@@ -51,14 +51,14 @@ LOG_LEVEL=DEBUG  # 开发环境
 ## 查看 Kubernetes 日志
 
 ```bash
-# 实时查看 user-service 日志
-kubectl logs -f deployment/user-service -n openshop
+# 实时查看 consumer-service 日志
+kubectl logs -f deployment/consumer-service -n openshop
 
 # 查看最近 100 行
 kubectl logs --tail=100 deployment/order-service -n openshop
 
 # 查看某个 Pod 的日志
-kubectl logs user-service-6d4b9f5-xyz -n openshop
+kubectl logs consumer-service-6d4b9f5-xyz -n openshop
 ```
 
 ## 敏感信息脱敏规则

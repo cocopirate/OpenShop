@@ -16,7 +16,9 @@
 | app-bff | 8090 | 面向 App/小程序 的聚合层 |
 | admin-bff | 8091 | 面向管理后台的聚合层 |
 | order-orchestration | 8100 | 订单流程 Saga 编排 |
-| user-service | 8001 | 客户注册/登录，管理员 RBAC |
+| auth-service | 8000 | 统一认证、登录与 JWT 颁发 |
+| admin-service | 8012 | 管理员账号、角色权限（RBAC） |
+| consumer-service | 8001 | 消费者注册/登录与资料 |
 | merchant-service | 8002 | 商家入驻、店铺管理 |
 | product-service | 8003 | 商品 SPU/SKU 管理 |
 | inventory-service | 8004 | 库存锁定/释放/扣减 |
@@ -28,10 +30,10 @@
 | sms-service | 8010 | 短信能力，多供应商 |
 | virtual-number-service | 8011 | 隐私号绑定/解绑 |
 
-## 服务目录结构（以 user-service 为例）
+## 服务目录结构（以 consumer-service 为例）
 
 ```
-services/user-service/
+services/consumer-service/
 ├── app/
 │   ├── main.py          # FastAPI 应用入口
 │   ├── config.py        # pydantic-settings 配置

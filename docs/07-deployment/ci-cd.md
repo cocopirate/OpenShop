@@ -47,7 +47,7 @@ ruff check .
 pytest tests/ -v --cov=app --cov-report=term-missing
 
 # 构建 Docker 镜像
-docker build -t openshop/user-service:latest services/user-service/
+docker build -t openshop/consumer-service:latest services/consumer-service/
 ```
 
 ## 镜像版本策略

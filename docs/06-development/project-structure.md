@@ -11,7 +11,9 @@ OpenShop/
 ├── orchestration/
 │   └── order-orchestration/ # 订单 Saga 编排（:8100）
 ├── services/               # 领域服务 + 能力服务
-│   ├── user-service/       # 用户与 RBAC（:8001）
+│   ├── auth-service/       # 认证与令牌（:8000）
+│   ├── admin-service/      # 管理员与 RBAC（:8012）
+│   ├── consumer-service/   # 消费者用户域（:8001）
 │   ├── merchant-service/   # 商家管理（:8002）
 │   ├── product-service/    # 商品管理（:8003）
 │   ├── inventory-service/  # 库存管理（:8004）

@@ -22,7 +22,7 @@
 | `GET /app/v1/home` | product-service + promotion-service |
 | `GET /app/v1/orders/{id}` | order-service + product-service |
 | `POST /app/v1/checkout` | order-orchestration |
-| `GET /app/v1/profile` | user-service + merchant-service |
+| `GET /app/v1/profile` | consumer-service + merchant-service |
 | `POST /app/v1/notifications/send-sms` | notification-service |
 
 ### 发送短信通知 – 请求示例

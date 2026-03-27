@@ -15,12 +15,13 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379/0"
     REDIS_POOL_MAX_SIZE: int = 10
 
-    # JWT settings - must match user-service
+    # JWT settings - must match auth-service
     SECRET_KEY: str = "change-this-secret-key-in-production"
     ALGORITHM: str = "HS256"
 
     # Upstream services
-    USER_SERVICE_URL: str = "http://user-service:8001"
+    CONSUMER_SERVICE_URL: str = "http://consumer-service:8001"
+    ADMIN_SERVICE_URL: str = "http://admin-service:8012"
     MERCHANT_SERVICE_URL: str = "http://merchant-service:8002"
     PRODUCT_SERVICE_URL: str = "http://product-service:8003"
     INVENTORY_SERVICE_URL: str = "http://inventory-service:8004"

@@ -13,7 +13,11 @@ API Gateway 是所有外部请求的唯一入口，负责：
 
 | 路径前缀 | 上游服务 |
 |---------|---------|
-| `/api/v1/users/**` | user-service:8001 |
+| `/api/auth/**` | auth-service:8000 |
+| `/api/admins/**` | admin-service:8012 |
+| `/api/roles/**` | admin-service:8012 |
+| `/api/permissions/**` | admin-service:8012 |
+| `/api/v1/users/**` | consumer-service:8001 |
 | `/api/v1/merchants/**` | merchant-service:8002 |
 | `/api/v1/products/**` | product-service:8003 |
 | `/api/v1/inventory/**` | inventory-service:8004 |

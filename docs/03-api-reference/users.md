@@ -1,11 +1,11 @@
 # 用户管理 API
 
-> 以下接口由 user-service（:8001）提供，前缀 `/api/users`，需要管理员权限。
+> 以下接口由 admin-service（:8012）提供，前缀 `/api/admins`，需要管理员权限。
 
 ## 获取管理员用户列表
 
 ```http
-GET /api/users?page=1&size=20&keyword=alice
+GET /api/admins?page=1&size=20&keyword=alice
 Authorization: Bearer <access_token>
 ```
 
@@ -35,7 +35,7 @@ Authorization: Bearer <access_token>
 ## 创建管理员用户
 
 ```http
-POST /api/users
+POST /api/admins
 Authorization: Bearer <access_token>
 Content-Type: application/json
 
@@ -49,14 +49,14 @@ Content-Type: application/json
 ## 获取用户详情
 
 ```http
-GET /api/users/{id}
+GET /api/admins/{id}
 Authorization: Bearer <access_token>
 ```
 
 ## 更新用户信息
 
 ```http
-PUT /api/users/{id}
+PUT /api/admins/{id}
 Authorization: Bearer <access_token>
 Content-Type: application/json
 
@@ -68,14 +68,14 @@ Content-Type: application/json
 ## 删除用户
 
 ```http
-DELETE /api/users/{id}
+DELETE /api/admins/{id}
 Authorization: Bearer <access_token>
 ```
 
 ## 修改用户状态
 
 ```http
-POST /api/users/{id}/status
+POST /api/admins/{id}/status
 Authorization: Bearer <access_token>
 Content-Type: application/json
 
@@ -89,7 +89,7 @@ Content-Type: application/json
 ## 分配角色
 
 ```http
-POST /api/users/{id}/roles
+POST /api/admins/{id}/roles
 Authorization: Bearer <access_token>
 Content-Type: application/json
 

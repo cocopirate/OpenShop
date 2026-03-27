@@ -45,7 +45,7 @@
 Authorization: Bearer <access_token>
 ```
 
-Token 由 user-service 颁发，API Gateway 负责校验。
+Token 由 auth-service 颁发，API Gateway 负责校验。
 
 ## 分页约定
 
@@ -77,7 +77,9 @@ Token 由 user-service 颁发，API Gateway 负责校验。
 | app-bff | http://localhost:8090/docs |
 | admin-bff | http://localhost:8091/docs |
 | order-orchestration | http://localhost:8100/docs |
-| user-service | http://localhost:8001/docs |
+| auth-service | http://localhost:8000/docs |
+| admin-service | http://localhost:8012/docs |
+| consumer-service | http://localhost:8001/docs |
 | merchant-service | http://localhost:8002/docs |
 | product-service | http://localhost:8003/docs |
 | inventory-service | http://localhost:8004/docs |

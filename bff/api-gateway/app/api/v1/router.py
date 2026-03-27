@@ -18,10 +18,12 @@ log = structlog.get_logger(__name__)
 
 # Route prefix → upstream URL (longest prefix wins)
 ROUTE_MAP = {
-    "/api/auth": settings.USER_SERVICE_URL,
-    "/api/users": settings.USER_SERVICE_URL,
-    "/api/roles": settings.USER_SERVICE_URL,
-    "/api/permissions": settings.USER_SERVICE_URL,
+    "/api/auth": settings.AUTH_SERVICE_URL,
+    "/api/admins": settings.ADMIN_SERVICE_URL,
+    "/api/users": settings.ADMIN_SERVICE_URL,
+    "/api/roles": settings.ADMIN_SERVICE_URL,
+    "/api/permissions": settings.ADMIN_SERVICE_URL,
+    "/api/v1/users": settings.CONSUMER_SERVICE_URL,
     "/api/v1/merchants": settings.MERCHANT_SERVICE_URL,
     "/api/v1/products": settings.PRODUCT_SERVICE_URL,
     "/api/v1/inventory": settings.INVENTORY_SERVICE_URL,

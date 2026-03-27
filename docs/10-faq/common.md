@@ -15,14 +15,14 @@ docker-compose -f infra/docker-compose.yml up -d
 ## Q: 如何只启动某一个服务？
 
 ```bash
-cd services/user-service
+cd services/consumer-service
 uvicorn app.main:app --reload --port 8001
 ```
 
 ## Q: JWT Token 如何获取？
 
 ```bash
-curl -X POST http://localhost:8001/api/auth/login \
+curl -X POST http://localhost:8000/api/auth/admin/login \
   -H "Content-Type: application/json" \
   -d '{"username": "admin", "password": "your-password"}'
 ```
@@ -34,14 +34,16 @@ curl -X POST http://localhost:8001/api/auth/login \
 | 服务 | 地址 |
 |------|------|
 | api-gateway | http://localhost:8080/docs |
-| user-service | http://localhost:8001/docs |
+| auth-service | http://localhost:8000/docs |
+| admin-service | http://localhost:8012/docs |
+| consumer-service | http://localhost:8001/docs |
 | order-service | http://localhost:8005/docs |
 | sms-service | http://localhost:8010/docs |
 
 ## Q: 数据库迁移如何执行？
 
 ```bash
-cd services/user-service
+cd services/consumer-service
 alembic upgrade head
 ```
 
@@ -73,5 +75,5 @@ docker-compose -f infra/docker-compose.yml down -v
 docker-compose -f infra/docker-compose.yml up -d
 
 # 重新执行迁移
-cd services/user-service && alembic upgrade head
+cd services/consumer-service && alembic upgrade head
 ```

@@ -186,7 +186,7 @@ DB: 更新 role_permissions
 ### 管理员用户禁用流程
 
 ```
-POST /api/users/{id}/status  {"status": "disabled"}
+POST /api/admins/{id}/status  {"status": "disabled"}
   │
   ▼
 DB: UPDATE admin_users SET status='disabled'
@@ -206,20 +206,20 @@ Redis: SET user_status:{uid} "disabled"
 
 | 方法 | 路径 | 请求体 | 响应 | 说明 |
 |------|------|--------|------|------|
-| POST | `/api/auth/login` | `{username, password}` | `{token, expires_in}` | 登录获取 JWT |
+| POST | `/api/auth/admin/login` | `{username, password}` | `{token, expires_in}` | 登录获取 JWT |
 | POST | `/api/auth/logout` | — | `{message}` | 登出，清理 Redis 状态 |
 
-### 管理员用户模块 `/api/users`
+### 管理员用户模块 `/api/admins`
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/users` | 获取管理员用户列表（分页、搜索） |
-| POST | `/api/users` | 创建管理员用户 |
-| GET | `/api/users/{id}` | 获取管理员用户详情（含角色） |
-| PUT | `/api/users/{id}` | 更新管理员用户基本信息 |
-| DELETE | `/api/users/{id}` | 删除管理员用户 |
-| POST | `/api/users/{id}/status` | 修改管理员用户状态（active/disabled） |
-| POST | `/api/users/{id}/roles` | 覆盖分配角色列表 |
+| GET | `/api/admins` | 获取管理员用户列表（分页、搜索） |
+| POST | `/api/admins` | 创建管理员用户 |
+| GET | `/api/admins/{id}` | 获取管理员用户详情（含角色） |
+| PUT | `/api/admins/{id}` | 更新管理员用户基本信息 |
+| DELETE | `/api/admins/{id}` | 删除管理员用户 |
+| POST | `/api/admins/{id}/status` | 修改管理员用户状态（active/disabled） |
+| POST | `/api/admins/{id}/roles` | 覆盖分配角色列表 |
 
 ### 角色模块 `/api/roles`
 

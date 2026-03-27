@@ -1,15 +1,15 @@
 # 认证 API
 
-> 认证接口由 user-service 提供，API Gateway 负责 JWT 校验。
+> 认证接口由 auth-service 提供，API Gateway 负责 JWT 校验。
 
 ## 登录
 
 ```http
-POST /api/auth/login
+POST /api/auth/admin/login
 Content-Type: application/json
 
 {
-  "username": "alice",
+  "username": "admin",
   "password": "your-password"
 }
 ```
