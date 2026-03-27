@@ -6,21 +6,6 @@ from jose import JWTError, jwt
 from app.core.config import settings
 from app.core.redis import get_redis
 
-# Public paths that don't need auth
-PUBLIC_PATHS = {
-    ("POST", "/api/auth/login"),
-    ("POST", "/api/auth/admin/login"),
-    ("POST", "/api/auth/consumer/login"),
-    ("POST", "/api/auth/merchant/login"),
-    ("POST", "/api/auth/merchant-sub/login"),
-    ("POST", "/api/auth/staff/login"),
-    ("POST", "/api/auth/register/consumer"),
-    ("POST", "/api/sms/send-code"),
-    ("GET", "/health"),
-    ("GET", "/health/ready"),
-    ("GET", "/metrics"),
-}
-
 # Permission map: (method, path_prefix) → permission_code
 PERMISSION_MAP = {
     ("GET", "/api/admins"): "admin.admins.view",

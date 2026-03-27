@@ -5,8 +5,9 @@ import structlog
 from fastapi import FastAPI, HTTPException, Request, status as http_status
 from fastapi.responses import JSONResponse
 
-from app.api.v1.router import router
+from app.api.v1.router import router, ROUTE_MAP
 from app.core.config import settings
+from app.core.public_routes import public_routes_registry
 from app.core.redis import close_redis, get_redis, init_redis
 from app.core.response import err, http_status_to_code, set_request_id
 from app.middleware.crypto_middleware import CryptoMiddleware
@@ -17,6 +18,7 @@ log = structlog.get_logger(__name__)
 @asynccontextmanager
 async def lifespan(application: FastAPI):
     await init_redis()
+    await public_routes_registry.refresh(ROUTE_MAP.values())
     log.info("api_gateway.started", version="1.0.0")
     yield
     await close_redis()
