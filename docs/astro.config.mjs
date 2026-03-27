@@ -45,6 +45,7 @@ export default defineConfig({
         {
           label: 'API 参考',
           items: [
+            { label: 'API 契约', slug: '03-api-reference/api-contract' },
             { label: '认证', slug: '03-api-reference/auth' },
             { label: '用户管理', slug: '03-api-reference/users' },
             { label: '商家管理', slug: '03-api-reference/merchants' },
@@ -56,10 +57,12 @@ export default defineConfig({
           label: '架构设计',
           items: [
             { label: '系统架构总览', slug: '04-architecture/system-overview' },
+            { label: '领域模型', slug: '04-architecture/domain-model' },
             { label: '微服务设计', slug: '04-architecture/microservices' },
             { label: 'API 网关', slug: '04-architecture/gateway' },
             { label: '事件驱动', slug: '04-architecture/event-driven' },
             { label: 'Saga 编排', slug: '04-architecture/saga' },
+            { label: '短信通知链路', slug: '04-architecture/sms-notification-chain' },
             { label: '安全设计', slug: '04-architecture/security' },
           ],
         },
@@ -68,6 +71,7 @@ export default defineConfig({
           items: [
             { label: '认证服务', slug: '05-services/auth-service/overview' },
             { label: '认证服务 API', slug: '05-services/auth-service/api' },
+            { label: '管理员服务 RBAC', slug: '05-services/admin-service/rbac' },
             { label: '管理员服务', slug: '05-services/admin-service/overview' },
             { label: '管理员服务 API', slug: '05-services/admin-service/api' },
             { label: '管理员服务数据模型', slug: '05-services/admin-service/schema' },
