@@ -429,3 +429,139 @@ async def _fetch_admin_permissions(biz_id: int) -> list[str]:
         return []
     permissions = data.get("permissions", [])
     return permissions if isinstance(permissions, list) else []
+
+
+async def _verify_sms_code_via_service(phone: str, code: str) -> bool:
+    """Call SMS service to verify an OTP code."""
+    url = f"{settings.SMS_SERVICE_URL}/api/sms/verify"
+    try:
+        async with httpx.AsyncClient(timeout=UPSTREAM_SERVICE_TIMEOUT) as client:
+            resp = await client.post(url, json={"phone": phone, "code": code})
+    except httpx.RequestError as exc:
+        log.error("sms_service.unreachable", error=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="SMS service unavailable",
+        ) from exc
+    return resp.status_code == 200
+
+
+async def _fetch_or_create_consumer_id(phone: str) -> int:
+    """Get the consumer's integer ID from consumer-service, creating one if needed."""
+    base_url = settings.CONSUMER_SERVICE_URL
+
+    try:
+        async with httpx.AsyncClient(timeout=UPSTREAM_SERVICE_TIMEOUT) as client:
+            resp = await client.get(f"{base_url}/internal/consumers/by-phone/{phone}")
+    except httpx.RequestError as exc:
+        log.error("consumer_service.unreachable", error=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Consumer service unavailable",
+        ) from exc
+
+    if resp.status_code == 200:
+        data = resp.json()
+        return int(data["data"]["id"])
+
+    if resp.status_code == 404:
+        # Consumer profile doesn't exist yet – create one
+        try:
+            async with httpx.AsyncClient(timeout=UPSTREAM_SERVICE_TIMEOUT) as client:
+                resp = await client.post(
+                    f"{base_url}/internal/consumers",
+                    json={"phone": phone},
+                )
+        except httpx.RequestError as exc:
+            log.error("consumer_service.unreachable", error=str(exc))
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Consumer service unavailable",
+            ) from exc
+
+        if resp.status_code == 201:
+            data = resp.json()
+            return int(data["data"]["id"])
+
+        log.error("consumer_service.create_failed", status_code=resp.status_code)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Failed to create consumer profile",
+        )
+
+    log.error("consumer_service.error", status_code=resp.status_code)
+    raise HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Consumer service returned an error",
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Consumer SMS login / auto-register                                           #
+# --------------------------------------------------------------------------- #
+
+
+async def login_or_register_consumer_by_sms(
+    db: AsyncSession,
+    redis: Redis,
+    request: Request,
+    phone: str,
+    code: str,
+) -> str:
+    """Verify SMS code then log in or auto-register the consumer.
+
+    - If the SMS code is invalid, raises 422.
+    - If no credential exists for the phone, creates a consumer profile in
+      consumer-service and registers a credential with no password.
+    - If a credential exists, validates account status and issues a JWT.
+    """
+    ip = _get_client_ip(request)
+    device_info = request.headers.get("User-Agent")
+
+    # Step 1: Verify the SMS code via SMS service
+    if not await _verify_sms_code_via_service(phone, code):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Invalid or expired verification code",
+        )
+
+    # Step 2: Look up existing credential
+    cred = await _lookup_credential(db, phone, IDENTITY_PHONE, ACCOUNT_CONSUMER)
+
+    if cred is None:
+        # Step 3a: New user – create consumer profile + auth credential
+        biz_id = await _fetch_or_create_consumer_id(phone)
+        new_cred = AuthCredential(
+            identity=phone,
+            identity_type=IDENTITY_PHONE,
+            # SMS-only accounts have no password credential; authentication is
+            # always performed via OTP.  Users who want password login must set
+            # a password separately through a dedicated endpoint.
+            credential=None,
+            account_type=ACCOUNT_CONSUMER,
+            biz_id=biz_id,
+            status=1,
+        )
+        db.add(new_cred)
+        await db.flush()
+        await db.refresh(new_cred)
+        cred = new_cred
+    else:
+        # Step 3b: Existing user – check account status
+        if cred.status != 1:
+            await _log_attempt(db, cred.biz_id, ACCOUNT_CONSUMER, ip, device_info, 0)
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Account is disabled",
+            )
+
+    # Step 4: Issue JWT token
+    ver = await _get_auth_version(redis, cred.biz_id, ACCOUNT_CONSUMER)
+    token = create_access_token({
+        "sub": str(cred.biz_id),
+        "uid": str(cred.biz_id),
+        "account_type": "consumer",
+        "ver": ver,
+    })
+    await _log_attempt(db, cred.biz_id, ACCOUNT_CONSUMER, ip, device_info, 1)
+    return token

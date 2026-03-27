@@ -25,6 +25,13 @@ async def get_consumer_by_internal_id(db: AsyncSession, consumer_id: int) -> Opt
     return result.scalar_one_or_none()
 
 
+async def get_consumer_by_phone(db: AsyncSession, phone: str) -> Optional[ConsumerAccount]:
+    result = await db.execute(
+        select(ConsumerAccount).where(ConsumerAccount.phone == phone)
+    )
+    return result.scalar_one_or_none()
+
+
 async def create_consumer(db: AsyncSession, data: ConsumerCreate) -> ConsumerAccount:
     consumer = ConsumerAccount(
         nickname=data.nickname,
