@@ -111,7 +111,7 @@ curl http://localhost:8010/health
 | template_id | string | ✓ | 短信模板标识符 |
 | params | object | — | 模板变量，默认为空对象 |
 | request_id | string | — | 客户端幂等键，最长 64 个字符 |
-| channel | string | — | 指定渠道名称（多租户路由），最长 64 个字符；不传则使用默认供应商 |
+| channel | string | — | 指定渠道名称（多租户路由），最长 64 个字符；不传则使用默认渠道（`sms_default_channel`） |
 
 **请求示例**
 
