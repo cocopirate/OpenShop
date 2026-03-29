@@ -11,6 +11,7 @@ class SmsSendRequest(BaseModel):
     template_id: str = Field(..., description="SMS template identifier")
     params: dict = Field(default_factory=dict, description="Template variable substitutions")
     request_id: Optional[str] = Field(None, max_length=64, description="Client-provided idempotency key (max 64 chars)")
+    channel: Optional[str] = Field(None, max_length=64, description="Named channel for multi-credential routing (e.g. 'external', 'internal')")
 
 
 class SmsSendResponse(BaseModel):

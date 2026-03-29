@@ -315,3 +315,141 @@ def test_config_new_settings():
     assert settings.CHUANGLAN_ACCOUNT == ""
     assert settings.SMS_PROVIDER_FALLBACK == ""
     assert settings.OTEL_ENDPOINT == ""
+    assert settings.SMS_CHANNELS == {}
+
+
+# ---------------------------------------------------------------------------
+# Channel routing
+# ---------------------------------------------------------------------------
+
+
+def test_get_provider_uses_channel_config_aliyun_phone_svc():
+    """get_provider(channel=...) returns a provider built with channel credentials."""
+    import app.providers.factory as factory_mod
+
+    channel_cfg = {
+        "external": {
+            "provider": "aliyun_phone_svc",
+            "access_key_id": "ext-key-id",
+            "access_key_secret": "ext-key-secret",
+            "sign_name": "ExternalSign",
+            "endpoint": "dypnsapi.aliyuncs.com",
+        }
+    }
+    with patch.object(factory_mod.settings, "SMS_CHANNELS", channel_cfg):
+        provider = factory_mod.get_provider(channel="external")
+
+    from app.providers.aliyun_phone_svc import AliyunPhoneSvcProvider
+    assert isinstance(provider, AliyunPhoneSvcProvider)
+    assert provider._key_id == "ext-key-id"
+    assert provider._key_secret == "ext-key-secret"
+    assert provider._sign_name == "ExternalSign"
+
+
+def test_get_provider_uses_channel_config_aliyun():
+    """get_provider(channel=...) routes aliyun channel with custom credentials."""
+    import app.providers.factory as factory_mod
+
+    channel_cfg = {
+        "internal": {
+            "provider": "aliyun",
+            "access_key_id": "int-key-id",
+            "access_key_secret": "int-key-secret",
+            "sign_name": "InternalSign",
+            "endpoint": "dysmsapi.aliyuncs.com",
+        }
+    }
+    with patch.object(factory_mod.settings, "SMS_CHANNELS", channel_cfg):
+        provider = factory_mod.get_provider(channel="internal")
+
+    from app.providers.aliyun import AliyunSmsProvider
+    assert isinstance(provider, AliyunSmsProvider)
+    assert provider._key_id == "int-key-id"
+    assert provider._key_secret == "int-key-secret"
+    assert provider._sign_name == "InternalSign"
+
+
+def test_get_provider_falls_back_to_default_for_unknown_channel():
+    """get_provider(channel=...) falls back to default when channel not configured."""
+    import app.providers.factory as factory_mod
+
+    with (
+        patch.object(factory_mod.settings, "SMS_CHANNELS", {}),
+        patch.object(factory_mod.settings, "SMS_PROVIDER", "chuanglan"),
+    ):
+        provider = factory_mod.get_provider(channel="nonexistent")
+
+    from app.providers.chuanglan import ChuangLanSmsProvider
+    assert isinstance(provider, ChuangLanSmsProvider)
+
+
+def test_get_provider_no_channel_uses_default():
+    """get_provider() with no channel uses the default SMS_PROVIDER."""
+    import app.providers.factory as factory_mod
+
+    with patch.object(factory_mod.settings, "SMS_PROVIDER", "chuanglan"):
+        provider = factory_mod.get_provider()
+
+    from app.providers.chuanglan import ChuangLanSmsProvider
+    assert isinstance(provider, ChuangLanSmsProvider)
+
+
+def test_aliyun_provider_uses_explicit_credentials():
+    """AliyunSmsProvider uses passed credentials over settings defaults."""
+    from app.providers.aliyun import AliyunSmsProvider
+
+    provider = AliyunSmsProvider(
+        key_id="custom-id",
+        key_secret="custom-secret",
+        sign_name="CustomSign",
+        endpoint="dysmsapi.aliyuncs.com",
+    )
+    assert provider._key_id == "custom-id"
+    assert provider._key_secret == "custom-secret"
+    assert provider._sign_name == "CustomSign"
+
+
+def test_aliyun_phone_svc_provider_uses_explicit_credentials():
+    """AliyunPhoneSvcProvider uses passed credentials over settings defaults."""
+    from app.providers.aliyun_phone_svc import AliyunPhoneSvcProvider
+
+    provider = AliyunPhoneSvcProvider(
+        access_key_id="pns-key-id",
+        access_key_secret="pns-key-secret",
+        sign_name="PnsSign",
+        endpoint="dypnsapi.aliyuncs.com",
+    )
+    assert provider._key_id == "pns-key-id"
+    assert provider._key_secret == "pns-key-secret"
+    assert provider._sign_name == "PnsSign"
+    assert provider._endpoint == "dypnsapi.aliyuncs.com"
+
+
+def test_two_channels_different_credentials():
+    """Two channels with the same provider type use different credentials."""
+    import app.providers.factory as factory_mod
+
+    channel_cfg = {
+        "external": {
+            "provider": "aliyun_phone_svc",
+            "access_key_id": "key1",
+            "access_key_secret": "secret1",
+            "sign_name": "Sign1",
+            "endpoint": "dypnsapi.aliyuncs.com",
+        },
+        "internal": {
+            "provider": "aliyun_phone_svc",
+            "access_key_id": "key2",
+            "access_key_secret": "secret2",
+            "sign_name": "Sign2",
+            "endpoint": "dypnsapi.aliyuncs.com",
+        },
+    }
+    with patch.object(factory_mod.settings, "SMS_CHANNELS", channel_cfg):
+        ext_provider = factory_mod.get_provider(channel="external")
+        int_provider = factory_mod.get_provider(channel="internal")
+
+    assert ext_provider._key_id == "key1"
+    assert int_provider._key_id == "key2"
+    assert ext_provider._sign_name == "Sign1"
+    assert int_provider._sign_name == "Sign2"

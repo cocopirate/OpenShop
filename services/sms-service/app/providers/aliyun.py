@@ -24,13 +24,20 @@ from app.providers import BaseSmsProvider, SendResult, StatusResult
 class AliyunSmsProvider(BaseSmsProvider):
     """Aliyun SMS adapter using the REST/signature API."""
 
-    _ENDPOINT = "https://dysmsapi.aliyuncs.com"
     _API_VERSION = "2017-05-25"
 
-    def __init__(self) -> None:
-        self._key_id = settings.ALIYUN_ACCESS_KEY_ID
-        self._key_secret = settings.ALIYUN_ACCESS_KEY_SECRET
-        self._sign_name = settings.ALIYUN_SMS_SIGN_NAME
+    def __init__(
+        self,
+        key_id: str = "",
+        key_secret: str = "",
+        sign_name: str = "",
+        endpoint: str = "",
+    ) -> None:
+        self._key_id = key_id or settings.ALIYUN_ACCESS_KEY_ID
+        self._key_secret = key_secret or settings.ALIYUN_ACCESS_KEY_SECRET
+        self._sign_name = sign_name or settings.ALIYUN_SMS_SIGN_NAME
+        _ep = endpoint or settings.ALIYUN_SMS_ENDPOINT
+        self._ENDPOINT = f"https://{_ep}" if not _ep.startswith("http") else _ep
 
     # ------------------------------------------------------------------
     # Public interface
