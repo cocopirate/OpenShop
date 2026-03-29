@@ -256,7 +256,7 @@ async def get_channel_raw(db: AsyncSession, name: str) -> Optional[SmsChannel]:
 async def get_default_channel(db: AsyncSession) -> Optional[SmsChannel]:
     """Return the channel marked as default, or the first channel if none marked."""
     result = await db.execute(
-        select(SmsChannel).where(SmsChannel.is_default == True).limit(1)
+        select(SmsChannel).where(SmsChannel.is_default.is_(True)).limit(1)
     )
     channel = result.scalar_one_or_none()
     if channel is None:
@@ -275,7 +275,7 @@ async def upsert_channel(
     if data.is_default:
         # Clear is_default from any other channel
         rows = await db.execute(
-            select(SmsChannel).where(SmsChannel.is_default == True, SmsChannel.name != name)
+            select(SmsChannel).where(SmsChannel.is_default.is_(True), SmsChannel.name != name)
         )
         for ch in rows.scalars().all():
             ch.is_default = False
@@ -316,7 +316,7 @@ async def patch_channel(
     if changed.get("is_default"):
         # Clear is_default from any other channel
         rows = await db.execute(
-            select(SmsChannel).where(SmsChannel.is_default == True, SmsChannel.name != name)
+            select(SmsChannel).where(SmsChannel.is_default.is_(True), SmsChannel.name != name)
         )
         for ch in rows.scalars().all():
             ch.is_default = False
