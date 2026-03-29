@@ -194,23 +194,17 @@ def test_get_sms_config_returns_expected_keys():
 
     config = get_sms_config()
     expected_keys = {
-        "sms_provider",
-        "sms_provider_fallback",
-        "sms_provider_failure_threshold",
-        "sms_provider_recovery_timeout",
+        "sms_default_channel",
         "sms_code_ttl",
         "sms_rate_limit_phone_per_minute",
         "sms_rate_limit_phone_per_day",
         "sms_rate_limit_ip_per_minute",
         "sms_rate_limit_ip_per_day",
         "sms_records_retention_days",
+        "sms_channels",
+        "sms_client_keys",
     }
-    assert expected_keys.issubset(set(config.keys()))
-    # Provider credential blocks are also present
-    assert "chuanglan" in config
-    assert "aliyun" in config
-    assert "aliyun_phone_svc" in config
-    assert "tencent" in config
+    assert expected_keys == set(config.keys())
 
 
 def _make_config_mock_db():
@@ -239,39 +233,19 @@ async def test_update_sms_config_partial():
 
 
 @pytest.mark.asyncio
-async def test_update_sms_config_provider():
+async def test_update_sms_config_default_channel():
     from app.core.config import settings
     from app.schemas.sms import SmsConfigUpdate
     from app.services.admin_service import update_sms_config
 
-    original_provider = settings.SMS_PROVIDER
+    original = settings.SMS_DEFAULT_CHANNEL
     mock_db = _make_config_mock_db()
     try:
-        result = await update_sms_config(SmsConfigUpdate(sms_provider="tencent"), mock_db)
-        assert result["sms_provider"] == "tencent"
-        assert settings.SMS_PROVIDER == "tencent"
+        result = await update_sms_config(SmsConfigUpdate(sms_default_channel="internal"), mock_db)
+        assert result["sms_default_channel"] == "internal"
+        assert settings.SMS_DEFAULT_CHANNEL == "internal"
     finally:
-        settings.SMS_PROVIDER = original_provider
-
-
-@pytest.mark.asyncio
-async def test_update_sms_config_provider_credentials():
-    """PUT /api/sms/config updates aliyun_phone_svc credentials in settings."""
-    from app.core.config import settings
-    from app.schemas.sms import AliyunCredentialsUpdate, SmsConfigUpdate
-    from app.services.admin_service import update_sms_config
-
-    original_key = settings.ALIYUN_PHONE_SVC_ACCESS_KEY_ID
-    mock_db = _make_config_mock_db()
-    try:
-        result = await update_sms_config(
-            SmsConfigUpdate(aliyun_phone_svc=AliyunCredentialsUpdate(access_key_id="new-key")),
-            mock_db,
-        )
-        assert settings.ALIYUN_PHONE_SVC_ACCESS_KEY_ID == "new-key"
-        assert result["aliyun_phone_svc"]["access_key_id"] == "new-key"
-    finally:
-        settings.ALIYUN_PHONE_SVC_ACCESS_KEY_ID = original_key
+        settings.SMS_DEFAULT_CHANNEL = original
 
 
 # ---------------------------------------------------------------------------
@@ -298,7 +272,7 @@ async def test_admin_get_config_endpoint():
         resp = await client.get("/api/sms/config")
     assert resp.status_code == 200
     data = resp.json()["data"]
-    assert "sms_provider" in data
+    assert "sms_default_channel" in data
     assert "sms_code_ttl" in data
 
 

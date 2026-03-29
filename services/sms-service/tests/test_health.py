@@ -181,7 +181,7 @@ def test_config_defaults():
 
     assert settings.SERVICE_NAME == "sms-service"
     assert settings.SERVICE_PORT == 8010
-    assert settings.SMS_PROVIDER in ("aliyun", "tencent")
+    assert settings.SMS_DEFAULT_CHANNEL
     assert settings.SMS_CODE_TTL > 0
     # Verify required infrastructure URLs are populated from env
     assert settings.DATABASE_URL, "DATABASE_URL must be set"

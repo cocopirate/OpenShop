@@ -55,16 +55,17 @@ async def send_sms(
             if existing:
                 return existing
 
-    provider = get_provider(channel=channel)
-    channel_cfg = settings.SMS_CHANNELS.get(channel) if channel else None
-    provider_name = channel_cfg.get("provider", settings.SMS_PROVIDER) if channel_cfg else settings.SMS_PROVIDER
+    effective_channel = channel or settings.SMS_DEFAULT_CHANNEL
+    provider = get_provider(channel=effective_channel)
+    channel_cfg = settings.SMS_CHANNELS.get(effective_channel, {})
+    provider_name = channel_cfg.get("provider", "aliyun")
 
     log.info(
         "sms.send.start",
         phone_masked=phone_masked,
         template_id=template_id,
         provider=provider_name,
-        channel=channel,
+        channel=effective_channel,
         request_id=request_id,
     )
 
@@ -77,7 +78,7 @@ async def send_sms(
     sms_send_latency.labels(provider=provider_name).observe(elapsed)
 
     if send_result.success:
-        record_provider_success()
+        record_provider_success(effective_channel)
         log.info(
             "sms.send.success",
             phone_masked=phone_masked,
@@ -85,13 +86,11 @@ async def send_sms(
             provider_message_id=send_result.provider_message_id,
             latency_ms=round(elapsed * 1000, 2),
         )
-        # When the provider returns the OTP in the send response (e.g. aliyun_phone_svc),
-        # cache it in Redis so the unified verify_code path works for all providers.
         if send_result.verification_code:
             vc_key = _make_verify_key(phone)
             await redis.set(vc_key, send_result.verification_code, ex=settings.SMS_CODE_TTL)
     else:
-        record_provider_failure()
+        record_provider_failure(effective_channel)
         log.error(
             "sms.send.failed",
             phone_masked=phone_masked,

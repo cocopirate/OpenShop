@@ -10,7 +10,6 @@ import time
 
 import httpx
 
-from app.core.config import settings
 from app.providers import BaseSmsProvider, SendResult, StatusResult
 
 
@@ -23,11 +22,17 @@ class TencentSmsProvider(BaseSmsProvider):
     _VERSION = "2021-01-11"
     _ACTION = "SendSms"
 
-    def __init__(self) -> None:
-        self._secret_id = settings.TENCENT_SECRET_ID
-        self._secret_key = settings.TENCENT_SECRET_KEY
-        self._app_id = settings.TENCENT_SMS_APP_ID
-        self._sign_name = settings.TENCENT_SMS_SIGN_NAME
+    def __init__(
+        self,
+        secret_id: str = "",
+        secret_key: str = "",
+        app_id: str = "",
+        sign_name: str = "",
+    ) -> None:
+        self._secret_id = secret_id
+        self._secret_key = secret_key
+        self._app_id = app_id
+        self._sign_name = sign_name
 
     async def send(self, phone: str, template_id: str, params: dict) -> SendResult:
         payload = {

@@ -20,6 +20,8 @@ from app.providers import BaseSmsProvider, SendResult, StatusResult
 
 log = structlog.get_logger(__name__)
 
+_DEFAULT_ENDPOINT = "dypnsapi.aliyuncs.com"
+
 
 def _build_client(
     access_key_id: str,
@@ -49,10 +51,10 @@ class AliyunPhoneSvcProvider(BaseSmsProvider):
         sign_name: str = "",
         endpoint: str = "",
     ) -> None:
-        self._key_id = access_key_id or settings.ALIYUN_PHONE_SVC_ACCESS_KEY_ID
-        self._key_secret = access_key_secret or settings.ALIYUN_PHONE_SVC_ACCESS_KEY_SECRET
-        self._sign_name = sign_name or settings.ALIYUN_PHONE_SVC_SIGN_NAME
-        self._endpoint = endpoint or settings.ALIYUN_PHONE_SVC_ENDPOINT
+        self._key_id = access_key_id
+        self._key_secret = access_key_secret
+        self._sign_name = sign_name
+        self._endpoint = endpoint or _DEFAULT_ENDPOINT
 
     # ------------------------------------------------------------------
     # BaseSmsProvider interface

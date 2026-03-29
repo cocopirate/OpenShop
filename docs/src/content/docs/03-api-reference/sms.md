@@ -721,10 +721,7 @@ curl http://localhost:8010/api/sms/config
   "code": 0,
   "message": "success",
   "data": {
-    "sms_provider": "chuanglan",
-    "sms_provider_fallback": "",
-    "sms_provider_failure_threshold": 3,
-    "sms_provider_recovery_timeout": 60,
+    "sms_default_channel": "_default",
     "sms_code_ttl": 300,
     "sms_rate_limit_phone_per_minute": 1,
     "sms_rate_limit_phone_per_day": 10,
@@ -737,34 +734,14 @@ curl http://localhost:8010/api/sms/config
         "access_key_id": "LTAIxxxxxx",
         "access_key_secret": "***",
         "sign_name": "A业务",
-        "endpoint": "dypnsapi.aliyuncs.com"
+        "endpoint": "dypnsapi.aliyuncs.com",
+        "failure_threshold": 3,
+        "recovery_timeout": 60,
+        "fallback_channel": "business_b"
       }
     },
     "sms_client_keys": {
       "key-business-a-001": "business_a"
-    },
-    "chuanglan": {
-      "account": "ACC123",
-      "password": "***",
-      "api_url": "https://smssh1.253.com/msg/v1/send/json"
-    },
-    "aliyun": {
-      "access_key_id": "LTAIxxxxxx",
-      "access_key_secret": "***",
-      "sign_name": "你的签名",
-      "endpoint": "dysmsapi.aliyuncs.com"
-    },
-    "aliyun_phone_svc": {
-      "access_key_id": "LTAIxxxxxx",
-      "access_key_secret": "***",
-      "sign_name": "你的签名",
-      "endpoint": "dypnsapi.aliyuncs.com"
-    },
-    "tencent": {
-      "secret_id": "AKIDxxxxxx",
-      "secret_key": "***",
-      "app_id": "1400000000",
-      "sign_name": "你的签名"
     }
   },
   "request_id": "m5384701-37p5-4421-l79p-92lnonol0knlo"
@@ -775,58 +752,23 @@ curl http://localhost:8010/api/sms/config
 
 ### PUT /api/sms/config
 
-动态更新短信服务运行时配置（供应商凭据、限频参数、熔断器参数等），立即生效并**持久化到数据库**，服务重启后自动恢复。
+动态更新短信服务运行时配置（限频阈值、验证码 TTL、默认渠道等），立即生效并**持久化到数据库**，服务重启后自动恢复。
 
-> **提示**：渠道（Channel）和客户端 API Key 推荐使用专用 CRUD 端点管理（见[渠道管理](#渠道管理)和[客户端 API Key 管理](#客户端-api-key-管理)）。`sms_channels` 和 `sms_client_keys` 字段仍支持，为增量合并语义。
+> **提示**：供应商凭据和熔断策略均在渠道（Channel）中配置，请使用专用 CRUD 端点管理（见[渠道管理](#渠道管理)）。
 
 **请求体（全部字段可选）**
 
 | 字段 | 类型 | 约束 | 说明 |
 |------|------|------|------|
-| sms_provider | string | — | 切换主供应商（`aliyun`/`aliyun_phone_svc`/`tencent`/`chuanglan`） |
-| sms_provider_fallback | string | — | 备用供应商，空字符串表示不启用 |
-| sms_provider_failure_threshold | int | ≥ 1 | 熔断器连续失败次数阈值 |
-| sms_provider_recovery_timeout | int | ≥ 1 | 熔断器恢复等待时间（秒） |
+| sms_default_channel | string | 最长 64 字符 | 无 X-API-Key 时使用的默认渠道名称 |
 | sms_code_ttl | int | ≥ 60 | 验证码有效期（秒） |
 | sms_rate_limit_phone_per_minute | int | ≥ 1 | 单手机号每分钟发送上限 |
 | sms_rate_limit_phone_per_day | int | ≥ 1 | 单手机号每日发送上限 |
 | sms_rate_limit_ip_per_minute | int | ≥ 1 | 单 IP 每分钟发送上限 |
 | sms_rate_limit_ip_per_day | int | ≥ 1 | 单 IP 每日发送上限 |
 | sms_records_retention_days | int | ≥ 0 | 发送记录保留天数，0 表示永久保留 |
-| sms_channels | object | — | 渠道配置（增量合并，值为 `null` 则删除该渠道） |
-| sms_client_keys | object | — | 客户端 Key 映射（增量合并，值为 `null` 则删除该 Key） |
-| chuanglan | object | — | 创蓝云凭据（部分更新） |
-| aliyun | object | — | 阿里云短信凭据（部分更新） |
-| aliyun_phone_svc | object | — | 阿里云号码认证凭据（部分更新） |
-| tencent | object | — | 腾讯云凭据（部分更新） |
 
-**`chuanglan` 凭据字段**
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| account | string | 创蓝云账号 |
-| password | string | 创蓝云密码 |
-| api_url | string | API 地址 |
-
-**`aliyun` / `aliyun_phone_svc` 凭据字段**
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| access_key_id | string | Access Key ID |
-| access_key_secret | string | Access Key Secret |
-| sign_name | string | 短信签名 |
-| endpoint | string | API Endpoint（留空使用默认值） |
-
-**`tencent` 凭据字段**
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| secret_id | string | SecretId |
-| secret_key | string | SecretKey |
-| app_id | string | SdkAppId |
-| sign_name | string | 短信签名 |
-
-**示例：更新供应商凭据**
+**示例：切换默认渠道**
 
 ```http
 PUT /api/sms/config HTTP/1.1
@@ -834,17 +776,11 @@ Host: localhost:8010
 Content-Type: application/json
 
 {
-  "sms_provider": "aliyun_phone_svc",
-  "aliyun_phone_svc": {
-    "access_key_id": "LTAIxxxxxx",
-    "access_key_secret": "your_secret",
-    "sign_name": "你的签名",
-    "endpoint": "dypnsapi.aliyuncs.com"
-  }
+  "sms_default_channel": "internal"
 }
 ```
 
-**示例：调整限频和熔断器参数**
+**示例：调整限频参数**
 
 ```http
 PUT /api/sms/config HTTP/1.1
@@ -854,8 +790,8 @@ Content-Type: application/json
 {
   "sms_rate_limit_phone_per_minute": 1,
   "sms_rate_limit_phone_per_day": 10,
-  "sms_provider_failure_threshold": 3,
-  "sms_provider_recovery_timeout": 60
+  "sms_rate_limit_ip_per_minute": 10,
+  "sms_rate_limit_ip_per_day": 100
 }
 ```
 
@@ -899,14 +835,19 @@ curl http://localhost:8010/api/sms/channels
         "access_key_id": "LTAIxxxxxx",
         "access_key_secret": "***",
         "sign_name": "A业务",
-        "endpoint": "dypnsapi.aliyuncs.com"
+        "endpoint": "dypnsapi.aliyuncs.com",
+        "failure_threshold": 3,
+        "recovery_timeout": 60,
+        "fallback_channel": "business_b"
       },
       {
         "name": "business_b",
         "provider": "aliyun",
         "access_key_id": "LTAIyyyyyy",
         "access_key_secret": "***",
-        "sign_name": "B业务"
+        "sign_name": "B业务",
+        "failure_threshold": 3,
+        "recovery_timeout": 60
       }
     ]
   },
@@ -949,7 +890,10 @@ curl http://localhost:8010/api/sms/channels/business_a
     "access_key_id": "LTAIxxxxxx",
     "access_key_secret": "***",
     "sign_name": "A业务",
-    "endpoint": "dypnsapi.aliyuncs.com"
+    "endpoint": "dypnsapi.aliyuncs.com",
+    "failure_threshold": 3,
+    "recovery_timeout": 60,
+    "fallback_channel": "business_b"
   },
   "request_id": "a1234567-0000-0000-0000-000000000002"
 }
@@ -999,6 +943,9 @@ curl http://localhost:8010/api/sms/channels/business_a
 | secret_id | string | — | SecretId（腾讯云） |
 | secret_key | string | — | SecretKey（腾讯云） |
 | app_id | string | — | SdkAppId（腾讯云） |
+| failure_threshold | int | — | 熔断阈值（连续失败次数，默认 3，≥1） |
+| recovery_timeout | int | — | 熔断恢复等待时间（秒，默认 60，≥1） |
+| fallback_channel | string | — | 熔断后切换的备用渠道名称，最长 64 字符 |
 
 **请求示例（阿里云号码认证）**
 
@@ -1012,14 +959,17 @@ Content-Type: application/json
   "access_key_id": "LTAIxxxxxx",
   "access_key_secret": "secret-a",
   "sign_name": "A业务",
-  "endpoint": "dypnsapi.aliyuncs.com"
+  "endpoint": "dypnsapi.aliyuncs.com",
+  "failure_threshold": 3,
+  "recovery_timeout": 60,
+  "fallback_channel": "business_b"
 }
 ```
 
 ```bash
 curl -X PUT http://localhost:8010/api/sms/channels/business_a \
   -H "Content-Type: application/json" \
-  -d '{"provider":"aliyun_phone_svc","access_key_id":"LTAIxxxxxx","access_key_secret":"secret-a","sign_name":"A业务","endpoint":"dypnsapi.aliyuncs.com"}'
+  -d '{"provider":"aliyun_phone_svc","access_key_id":"LTAIxxxxxx","access_key_secret":"secret-a","sign_name":"A业务","endpoint":"dypnsapi.aliyuncs.com","failure_threshold":3,"recovery_timeout":60,"fallback_channel":"business_b"}'
 ```
 
 **请求示例（创蓝云）**
@@ -1033,7 +983,9 @@ Content-Type: application/json
   "provider": "chuanglan",
   "account": "your_account",
   "password": "your_password",
-  "api_url": "https://smsbj1.253.com/msg/send/json"
+  "api_url": "https://smsbj1.253.com/msg/send/json",
+  "failure_threshold": 5,
+  "recovery_timeout": 120
 }
 ```
 
@@ -1049,7 +1001,10 @@ Content-Type: application/json
     "access_key_id": "LTAIxxxxxx",
     "access_key_secret": "***",
     "sign_name": "A业务",
-    "endpoint": "dypnsapi.aliyuncs.com"
+    "endpoint": "dypnsapi.aliyuncs.com",
+    "failure_threshold": 3,
+    "recovery_timeout": 60,
+    "fallback_channel": "business_b"
   },
   "request_id": "a1234567-0000-0000-0000-000000000004"
 }
@@ -1067,7 +1022,7 @@ Content-Type: application/json
 |------|------|------|
 | name | string | 渠道名称 |
 
-**请求体**：与 `PUT` 相同，但所有字段均为可选。
+**请求体**：与 `PUT` 相同，但所有字段均为可选（包括 `failure_threshold`、`recovery_timeout`、`fallback_channel`）。
 
 **请求示例（仅更新签名）**
 
@@ -1085,6 +1040,20 @@ Content-Type: application/json
 curl -X PATCH http://localhost:8010/api/sms/channels/business_a \
   -H "Content-Type: application/json" \
   -d '{"sign_name":"新A业务签名"}'
+```
+
+**请求示例（调整熔断策略）**
+
+```http
+PATCH /api/sms/channels/business_a HTTP/1.1
+Host: localhost:8010
+Content-Type: application/json
+
+{
+  "failure_threshold": 5,
+  "recovery_timeout": 120,
+  "fallback_channel": "business_b"
+}
 ```
 
 **响应示例（200 OK）**：同 `PUT` 响应结构。

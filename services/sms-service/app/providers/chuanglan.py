@@ -6,18 +6,20 @@ import json
 
 import httpx
 
-from app.core.config import settings
 from app.providers import BaseSmsProvider, SendResult, StatusResult
+
+_DEFAULT_API_URL = "https://smssh1.253.com/msg/v1/send/json"
+_DEFAULT_QUERY_URL = "https://smssh1.253.com/msg/v1/report/json"
 
 
 class ChuangLanSmsProvider(BaseSmsProvider):
     """ChuangLan SMS adapter."""
 
-    def __init__(self) -> None:
-        self._account = settings.CHUANGLAN_ACCOUNT
-        self._password = settings.CHUANGLAN_PASSWORD
-        self._send_url = settings.CHUANGLAN_API_URL
-        self._query_url = "https://smssh1.253.com/msg/v1/report/json"
+    def __init__(self, account: str = "", password: str = "", api_url: str = "") -> None:
+        self._account = account
+        self._password = password
+        self._send_url = api_url or _DEFAULT_API_URL
+        self._query_url = _DEFAULT_QUERY_URL
 
     async def send(self, phone: str, template_id: str, params: dict) -> SendResult:
         content = self._build_content(template_id, params)

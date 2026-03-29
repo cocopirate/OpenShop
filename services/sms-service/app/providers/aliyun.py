@@ -17,8 +17,9 @@ from urllib.parse import quote, urlencode
 
 import httpx
 
-from app.core.config import settings
 from app.providers import BaseSmsProvider, SendResult, StatusResult
+
+_DEFAULT_ENDPOINT = "https://dysmsapi.aliyuncs.com"
 
 
 class AliyunSmsProvider(BaseSmsProvider):
@@ -33,10 +34,10 @@ class AliyunSmsProvider(BaseSmsProvider):
         sign_name: str = "",
         endpoint: str = "",
     ) -> None:
-        self._key_id = key_id or settings.ALIYUN_ACCESS_KEY_ID
-        self._key_secret = key_secret or settings.ALIYUN_ACCESS_KEY_SECRET
-        self._sign_name = sign_name or settings.ALIYUN_SMS_SIGN_NAME
-        _ep = endpoint or settings.ALIYUN_SMS_ENDPOINT
+        self._key_id = key_id
+        self._key_secret = key_secret
+        self._sign_name = sign_name
+        _ep = endpoint or _DEFAULT_ENDPOINT
         self._ENDPOINT = f"https://{_ep}" if not _ep.startswith("http") else _ep
 
     # ------------------------------------------------------------------

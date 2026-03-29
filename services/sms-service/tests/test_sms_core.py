@@ -110,47 +110,58 @@ async def test_check_phone_rate_limit_allowed():
 
 
 def test_circuit_breaker_opens_after_threshold():
-    # Reset circuit state first
     import app.providers.factory as factory_mod
-    factory_mod._circuit["failure_count"] = 0
-    factory_mod._circuit["open"] = False
-    factory_mod._circuit["last_failure_time"] = 0.0
 
-    threshold = factory_mod.settings.SMS_PROVIDER_FAILURE_THRESHOLD
+    channel = "_cb_test_channel"
+    factory_mod._circuits[channel] = {"failure_count": 0, "open": False, "last_failure_time": 0.0}
+
+    threshold = factory_mod._DEFAULT_FAILURE_THRESHOLD
     for _ in range(threshold):
-        factory_mod.record_provider_failure()
+        factory_mod.record_provider_failure(channel)
 
-    assert factory_mod._circuit["open"] is True
+    assert factory_mod._circuits[channel]["open"] is True
 
 
 def test_circuit_breaker_resets_on_success():
     import app.providers.factory as factory_mod
-    factory_mod._circuit["failure_count"] = 5
-    factory_mod._circuit["open"] = True
 
-    factory_mod.record_provider_success()
+    channel = "_cb_test_channel"
+    factory_mod._circuits[channel] = {"failure_count": 5, "open": True, "last_failure_time": 0.0}
 
-    assert factory_mod._circuit["open"] is False
-    assert factory_mod._circuit["failure_count"] == 0
+    factory_mod.record_provider_success(channel)
+
+    assert factory_mod._circuits[channel]["open"] is False
+    assert factory_mod._circuits[channel]["failure_count"] == 0
 
 
 def test_get_provider_returns_fallback_when_circuit_open():
     import app.providers.factory as factory_mod
 
-    factory_mod._circuit["open"] = True
-    factory_mod._circuit["last_failure_time"] = time.monotonic()  # just failed - won't recover yet
+    primary = "_primary_test"
+    fallback = "_fallback_test"
+    channel_cfg = {
+        primary: {
+            "provider": "aliyun",
+            "access_key_id": "k", "access_key_secret": "s",
+            "fallback_channel": fallback,
+        },
+        fallback: {
+            "provider": "tencent",
+            "secret_id": "id", "secret_key": "sk", "app_id": "app", "sign_name": "sign",
+        },
+    }
+    factory_mod._circuits[primary] = {
+        "failure_count": 5, "open": True, "last_failure_time": time.monotonic()
+    }
 
-    with (
-        patch.object(factory_mod.settings, "SMS_PROVIDER", "aliyun"),
-        patch.object(factory_mod.settings, "SMS_PROVIDER_FALLBACK", "tencent"),
-    ):
-        provider = factory_mod.get_provider()
+    with patch.object(factory_mod.settings, "SMS_CHANNELS", channel_cfg):
+        provider = factory_mod.get_provider(primary)
+
     from app.providers.tencent import TencentSmsProvider
     assert isinstance(provider, TencentSmsProvider)
 
     # cleanup
-    factory_mod._circuit["open"] = False
-    factory_mod._circuit["failure_count"] = 0
+    factory_mod._circuits.pop(primary, None)
 
 
 # ---------------------------------------------------------------------------
@@ -309,11 +320,8 @@ def test_config_new_settings():
     from app.core.config import settings
 
     assert settings.ENV == "development"
-    assert settings.SMS_PROVIDER_FAILURE_THRESHOLD == 3
-    assert settings.SMS_PROVIDER_RECOVERY_TIMEOUT == 60
+    assert settings.SMS_DEFAULT_CHANNEL == "_default"
     assert settings.SMS_RECORDS_RETENTION_DAYS == 90
-    assert settings.CHUANGLAN_ACCOUNT == ""
-    assert settings.SMS_PROVIDER_FALLBACK == ""
     assert settings.OTEL_ENDPOINT == ""
     assert settings.SMS_CHANNELS == {}
 
@@ -370,25 +378,23 @@ def test_get_provider_uses_channel_config_aliyun():
 
 
 def test_get_provider_falls_back_to_default_for_unknown_channel():
-    """get_provider(channel=...) falls back to default when channel not configured."""
+    """get_provider(channel=...) returns aliyun (default) for unconfigured channel."""
     import app.providers.factory as factory_mod
 
-    with (
-        patch.object(factory_mod.settings, "SMS_CHANNELS", {}),
-        patch.object(factory_mod.settings, "SMS_PROVIDER", "chuanglan"),
-    ):
+    with patch.object(factory_mod.settings, "SMS_CHANNELS", {}):
         provider = factory_mod.get_provider(channel="nonexistent")
 
-    from app.providers.chuanglan import ChuangLanSmsProvider
-    assert isinstance(provider, ChuangLanSmsProvider)
+    from app.providers.aliyun import AliyunSmsProvider
+    assert isinstance(provider, AliyunSmsProvider)
 
 
-def test_get_provider_no_channel_uses_default():
-    """get_provider() with no channel uses the default SMS_PROVIDER."""
+def test_get_provider_default_channel_uses_channel_config():
+    """Calling get_provider with SMS_DEFAULT_CHANNEL routes through its channel config."""
     import app.providers.factory as factory_mod
 
-    with patch.object(factory_mod.settings, "SMS_PROVIDER", "chuanglan"):
-        provider = factory_mod.get_provider()
+    channel_cfg = {"_default": {"provider": "chuanglan", "account": "acc", "password": "pw"}}
+    with patch.object(factory_mod.settings, "SMS_CHANNELS", channel_cfg):
+        provider = factory_mod.get_provider("_default")
 
     from app.providers.chuanglan import ChuangLanSmsProvider
     assert isinstance(provider, ChuangLanSmsProvider)

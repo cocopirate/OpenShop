@@ -40,21 +40,20 @@ class Settings(BaseSettings):
 settings = Settings()
 
 # ---------------------------------------------------------------------------
-# SMS provider config – NOT loaded from environment variables.
+# SMS runtime config – NOT loaded from environment variables.
 #
-# These defaults are applied once at module import and are overridden at
-# service startup by load_persisted_config(), which reads the
-# sms_config_store table written via PUT /api/sms/config.
+# All provider credentials and routing strategy now live inside individual
+# channel entries (SMS_CHANNELS). Configure them via:
+#   PUT /api/sms/channels/{channel_name}
 #
-# To change any of these values use the runtime API, not env vars.
+# The only global settings here are: default channel selection, code TTL,
+# rate limits, retention policy, and the channel/client-key registries.
 # ---------------------------------------------------------------------------
 
 _SMS_DEFAULTS: dict = {
-    # Active provider and circuit-breaker
-    "SMS_PROVIDER": "chuanglan",
-    "SMS_PROVIDER_FALLBACK": "",
-    "SMS_PROVIDER_FAILURE_THRESHOLD": 3,
-    "SMS_PROVIDER_RECOVERY_TIMEOUT": 60,
+    # Default channel used when no X-API-Key / channel is specified.
+    # Configure this channel (e.g. "_default") via PUT /api/sms/channels/_default.
+    "SMS_DEFAULT_CHANNEL": "_default",
     # Verification code
     "SMS_CODE_TTL": 300,
     # Rate limits
@@ -64,28 +63,9 @@ _SMS_DEFAULTS: dict = {
     "SMS_RATE_LIMIT_IP_PER_DAY": 100,
     # Record retention
     "SMS_RECORDS_RETENTION_DAYS": 90,
-    # Multi-tenant channel routing
+    # Channel registry and client-key → channel mapping
     "SMS_CHANNELS": {},
     "SMS_CLIENT_KEYS": {},
-    # ChuangLan (创蓝云) credentials
-    "CHUANGLAN_ACCOUNT": "",
-    "CHUANGLAN_PASSWORD": "",
-    "CHUANGLAN_API_URL": "https://smssh1.253.com/msg/v1/send/json",
-    # Aliyun SMS credentials
-    "ALIYUN_ACCESS_KEY_ID": "",
-    "ALIYUN_ACCESS_KEY_SECRET": "",
-    "ALIYUN_SMS_SIGN_NAME": "",
-    "ALIYUN_SMS_ENDPOINT": "dysmsapi.aliyuncs.com",
-    # Aliyun Phone Number Service credentials
-    "ALIYUN_PHONE_SVC_ACCESS_KEY_ID": "",
-    "ALIYUN_PHONE_SVC_ACCESS_KEY_SECRET": "",
-    "ALIYUN_PHONE_SVC_SIGN_NAME": "",
-    "ALIYUN_PHONE_SVC_ENDPOINT": "dypnsapi.aliyuncs.com",
-    # Tencent Cloud SMS credentials
-    "TENCENT_SECRET_ID": "",
-    "TENCENT_SECRET_KEY": "",
-    "TENCENT_SMS_APP_ID": "",
-    "TENCENT_SMS_SIGN_NAME": "",
 }
 
 for _k, _v in _SMS_DEFAULTS.items():
