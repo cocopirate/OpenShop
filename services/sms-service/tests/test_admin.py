@@ -389,3 +389,403 @@ async def test_admin_get_template_not_found():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.get("/api/sms/templates/9999")
     assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Admin service – Channel CRUD
+# ---------------------------------------------------------------------------
+
+
+def _make_persist_db():
+    """AsyncMock db that satisfies _persist_config (no existing store row)."""
+    mock_db = AsyncMock()
+    store_result = MagicMock()
+    store_result.scalar_one_or_none.return_value = None
+    mock_db.execute = AsyncMock(return_value=store_result)
+    return mock_db
+
+
+def test_list_channels_empty():
+    from app.core.config import settings
+    from app.services.admin_service import list_channels
+
+    original = settings.SMS_CHANNELS
+    settings.SMS_CHANNELS = {}
+    try:
+        items, total = list_channels()
+        assert total == 0
+        assert items == []
+    finally:
+        settings.SMS_CHANNELS = original
+
+
+def test_list_channels_with_data():
+    from app.core.config import settings
+    from app.services.admin_service import list_channels
+
+    original = settings.SMS_CHANNELS
+    settings.SMS_CHANNELS = {
+        "biz_a": {
+            "provider": "aliyun",
+            "access_key_id": "k1",
+            "access_key_secret": "s1",
+            "sign_name": "A",
+        }
+    }
+    try:
+        items, total = list_channels()
+        assert total == 1
+        assert items[0].name == "biz_a"
+        assert items[0].access_key_secret == "***"  # masked
+    finally:
+        settings.SMS_CHANNELS = original
+
+
+def test_get_channel_not_found():
+    from app.core.config import settings
+    from app.services.admin_service import get_channel
+
+    original = settings.SMS_CHANNELS
+    settings.SMS_CHANNELS = {}
+    try:
+        result = get_channel("nonexistent")
+        assert result is None
+    finally:
+        settings.SMS_CHANNELS = original
+
+
+def test_get_channel_found():
+    from app.core.config import settings
+    from app.services.admin_service import get_channel
+
+    original = settings.SMS_CHANNELS
+    settings.SMS_CHANNELS = {
+        "biz_b": {"provider": "tencent", "secret_id": "id1", "secret_key": "sk1"}
+    }
+    try:
+        ch = get_channel("biz_b")
+        assert ch is not None
+        assert ch.provider == "tencent"
+        assert ch.secret_key == "***"
+    finally:
+        settings.SMS_CHANNELS = original
+
+
+@pytest.mark.asyncio
+async def test_upsert_channel():
+    from app.core.config import settings
+    from app.schemas.sms import SmsChannelCreate
+    from app.services.admin_service import upsert_channel
+
+    original = settings.SMS_CHANNELS
+    settings.SMS_CHANNELS = {}
+    mock_db = _make_persist_db()
+    try:
+        data = SmsChannelCreate(provider="aliyun", access_key_id="k", access_key_secret="s")
+        ch = await upsert_channel("new_biz", data, mock_db)
+        assert ch.name == "new_biz"
+        assert ch.provider == "aliyun"
+        assert ch.access_key_secret == "***"
+        assert "new_biz" in settings.SMS_CHANNELS
+    finally:
+        settings.SMS_CHANNELS = original
+
+
+@pytest.mark.asyncio
+async def test_patch_channel_not_found():
+    from app.core.config import settings
+    from app.schemas.sms import SmsChannelUpdate
+    from app.services.admin_service import patch_channel
+
+    original = settings.SMS_CHANNELS
+    settings.SMS_CHANNELS = {}
+    mock_db = _make_persist_db()
+    try:
+        result = await patch_channel("ghost", SmsChannelUpdate(sign_name="X"), mock_db)
+        assert result is None
+    finally:
+        settings.SMS_CHANNELS = original
+
+
+@pytest.mark.asyncio
+async def test_patch_channel_success():
+    from app.core.config import settings
+    from app.schemas.sms import SmsChannelUpdate
+    from app.services.admin_service import patch_channel
+
+    original = settings.SMS_CHANNELS
+    settings.SMS_CHANNELS = {"biz_c": {"provider": "aliyun", "sign_name": "old"}}
+    mock_db = _make_persist_db()
+    try:
+        result = await patch_channel("biz_c", SmsChannelUpdate(sign_name="new"), mock_db)
+        assert result is not None
+        assert settings.SMS_CHANNELS["biz_c"]["sign_name"] == "new"
+        assert settings.SMS_CHANNELS["biz_c"]["provider"] == "aliyun"
+    finally:
+        settings.SMS_CHANNELS = original
+
+
+@pytest.mark.asyncio
+async def test_delete_channel_not_found():
+    from app.core.config import settings
+    from app.services.admin_service import delete_channel
+
+    original = settings.SMS_CHANNELS
+    settings.SMS_CHANNELS = {}
+    mock_db = _make_persist_db()
+    try:
+        ok = await delete_channel("ghost", mock_db)
+        assert ok is False
+    finally:
+        settings.SMS_CHANNELS = original
+
+
+@pytest.mark.asyncio
+async def test_delete_channel_success():
+    from app.core.config import settings
+    from app.services.admin_service import delete_channel
+
+    original = settings.SMS_CHANNELS
+    settings.SMS_CHANNELS = {"biz_d": {"provider": "chuanglan"}}
+    mock_db = _make_persist_db()
+    try:
+        ok = await delete_channel("biz_d", mock_db)
+        assert ok is True
+        assert "biz_d" not in settings.SMS_CHANNELS
+    finally:
+        settings.SMS_CHANNELS = original
+
+
+# ---------------------------------------------------------------------------
+# Admin service – Client Key CRUD
+# ---------------------------------------------------------------------------
+
+
+def test_list_client_keys_empty():
+    from app.core.config import settings
+    from app.services.admin_service import list_client_keys
+
+    original = settings.SMS_CLIENT_KEYS
+    settings.SMS_CLIENT_KEYS = {}
+    try:
+        items, total = list_client_keys()
+        assert total == 0
+    finally:
+        settings.SMS_CLIENT_KEYS = original
+
+
+def test_list_client_keys_with_data():
+    from app.core.config import settings
+    from app.services.admin_service import list_client_keys
+
+    original = settings.SMS_CLIENT_KEYS
+    settings.SMS_CLIENT_KEYS = {"key-abc": "biz_a", "key-xyz": "biz_b"}
+    try:
+        items, total = list_client_keys()
+        assert total == 2
+        assert {i.api_key for i in items} == {"key-abc", "key-xyz"}
+    finally:
+        settings.SMS_CLIENT_KEYS = original
+
+
+@pytest.mark.asyncio
+async def test_create_client_key():
+    from app.core.config import settings
+    from app.schemas.sms import SmsClientKeyCreate
+    from app.services.admin_service import create_client_key
+
+    original = settings.SMS_CLIENT_KEYS
+    settings.SMS_CLIENT_KEYS = {}
+    mock_db = _make_persist_db()
+    try:
+        k = await create_client_key(SmsClientKeyCreate(api_key="new-key", channel="biz_a"), mock_db)
+        assert k.api_key == "new-key"
+        assert k.channel == "biz_a"
+        assert settings.SMS_CLIENT_KEYS["new-key"] == "biz_a"
+    finally:
+        settings.SMS_CLIENT_KEYS = original
+
+
+@pytest.mark.asyncio
+async def test_delete_client_key_not_found():
+    from app.core.config import settings
+    from app.services.admin_service import delete_client_key
+
+    original = settings.SMS_CLIENT_KEYS
+    settings.SMS_CLIENT_KEYS = {}
+    mock_db = _make_persist_db()
+    try:
+        ok = await delete_client_key("ghost-key", mock_db)
+        assert ok is False
+    finally:
+        settings.SMS_CLIENT_KEYS = original
+
+
+@pytest.mark.asyncio
+async def test_delete_client_key_success():
+    from app.core.config import settings
+    from app.services.admin_service import delete_client_key
+
+    original = settings.SMS_CLIENT_KEYS
+    settings.SMS_CLIENT_KEYS = {"del-key": "biz_a"}
+    mock_db = _make_persist_db()
+    try:
+        ok = await delete_client_key("del-key", mock_db)
+        assert ok is True
+        assert "del-key" not in settings.SMS_CLIENT_KEYS
+    finally:
+        settings.SMS_CLIENT_KEYS = original
+
+
+# ---------------------------------------------------------------------------
+# Admin router – Channel / Client-key HTTP endpoint smoke tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_list_channels_endpoint_empty():
+    from app.core.config import settings
+    from httpx import ASGITransport, AsyncClient
+
+    original = settings.SMS_CHANNELS
+    settings.SMS_CHANNELS = {}
+    app = _make_app()
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/api/sms/channels")
+        assert resp.status_code == 200
+        assert resp.json()["data"]["total"] == 0
+    finally:
+        settings.SMS_CHANNELS = original
+
+
+@pytest.mark.asyncio
+async def test_get_channel_endpoint_not_found():
+    from app.core.config import settings
+    from httpx import ASGITransport, AsyncClient
+
+    original = settings.SMS_CHANNELS
+    settings.SMS_CHANNELS = {}
+    app = _make_app()
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/api/sms/channels/ghost")
+        assert resp.status_code == 404
+    finally:
+        settings.SMS_CHANNELS = original
+
+
+@pytest.mark.asyncio
+async def test_upsert_channel_endpoint():
+    from app.core.config import settings
+    from app.core.database import get_db
+    from httpx import ASGITransport, AsyncClient
+
+    original = settings.SMS_CHANNELS
+    settings.SMS_CHANNELS = {}
+    app = _make_app()
+
+    async def _override_db():
+        yield _make_persist_db()
+
+    app.dependency_overrides[get_db] = _override_db
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.put(
+                "/api/sms/channels/biz_test",
+                json={"provider": "aliyun", "access_key_id": "k1", "access_key_secret": "s1"},
+            )
+        assert resp.status_code == 201
+        data = resp.json()["data"]
+        assert data["name"] == "biz_test"
+        assert data["access_key_secret"] == "***"
+        assert "biz_test" in settings.SMS_CHANNELS
+    finally:
+        settings.SMS_CHANNELS = original
+
+
+@pytest.mark.asyncio
+async def test_delete_channel_endpoint_not_found():
+    from app.core.config import settings
+    from app.core.database import get_db
+    from httpx import ASGITransport, AsyncClient
+
+    original = settings.SMS_CHANNELS
+    settings.SMS_CHANNELS = {}
+    app = _make_app()
+
+    async def _override_db():
+        yield _make_persist_db()
+
+    app.dependency_overrides[get_db] = _override_db
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.delete("/api/sms/channels/ghost")
+        assert resp.status_code == 404
+    finally:
+        settings.SMS_CHANNELS = original
+
+
+@pytest.mark.asyncio
+async def test_list_client_keys_endpoint():
+    from app.core.config import settings
+    from httpx import ASGITransport, AsyncClient
+
+    original = settings.SMS_CLIENT_KEYS
+    settings.SMS_CLIENT_KEYS = {"k1": "biz_a"}
+    app = _make_app()
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/api/sms/client-keys")
+        assert resp.status_code == 200
+        assert resp.json()["data"]["total"] == 1
+    finally:
+        settings.SMS_CLIENT_KEYS = original
+
+
+@pytest.mark.asyncio
+async def test_create_client_key_endpoint():
+    from app.core.config import settings
+    from app.core.database import get_db
+    from httpx import ASGITransport, AsyncClient
+
+    original = settings.SMS_CLIENT_KEYS
+    settings.SMS_CLIENT_KEYS = {}
+    app = _make_app()
+
+    async def _override_db():
+        yield _make_persist_db()
+
+    app.dependency_overrides[get_db] = _override_db
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.post(
+                "/api/sms/client-keys",
+                json={"api_key": "test-key-001", "channel": "biz_a"},
+            )
+        assert resp.status_code == 201
+        assert resp.json()["data"]["channel"] == "biz_a"
+    finally:
+        settings.SMS_CLIENT_KEYS = original
+
+
+@pytest.mark.asyncio
+async def test_delete_client_key_endpoint_not_found():
+    from app.core.config import settings
+    from app.core.database import get_db
+    from httpx import ASGITransport, AsyncClient
+
+    original = settings.SMS_CLIENT_KEYS
+    settings.SMS_CLIENT_KEYS = {}
+    app = _make_app()
+
+    async def _override_db():
+        yield _make_persist_db()
+
+    app.dependency_overrides[get_db] = _override_db
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.delete("/api/sms/client-keys/ghost-key")
+        assert resp.status_code == 404
+    finally:
+        settings.SMS_CLIENT_KEYS = original

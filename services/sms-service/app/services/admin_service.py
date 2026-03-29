@@ -9,7 +9,16 @@ from app.core.config import settings
 from app.models.sms_config_store import SmsConfigStore
 from app.models.sms_record import SmsRecord
 from app.models.sms_template import SmsTemplate
-from app.schemas.sms import SmsConfigUpdate, SmsTemplateCreate, SmsTemplateUpdate
+from app.schemas.sms import (
+    SmsChannelCreate,
+    SmsChannelOut,
+    SmsChannelUpdate,
+    SmsClientKeyCreate,
+    SmsClientKeyOut,
+    SmsConfigUpdate,
+    SmsTemplateCreate,
+    SmsTemplateUpdate,
+)
 
 log = structlog.get_logger(__name__)
 
@@ -308,3 +317,105 @@ async def update_sms_config(data: SmsConfigUpdate, db: AsyncSession) -> dict:
     await db.commit()
     log.info("admin.config.updated", changed=list(changed.keys()))
     return get_sms_config()
+
+
+# ---------------------------------------------------------------------------
+# SMS Channel CRUD
+# ---------------------------------------------------------------------------
+
+_SECRET_FIELDS = {"access_key_secret", "password", "secret_key"}
+
+
+def _mask_channel(name: str, cfg: dict) -> SmsChannelOut:
+    """Return a SmsChannelOut with secret fields masked."""
+    masked = {k: ("***" if k in _SECRET_FIELDS and v else v) for k, v in cfg.items()}
+    return SmsChannelOut(name=name, **masked)
+
+
+def list_channels() -> tuple[list[SmsChannelOut], int]:
+    """Return all configured channels with secrets masked."""
+    items = [_mask_channel(n, c) for n, c in settings.SMS_CHANNELS.items()]
+    return items, len(items)
+
+
+def get_channel(name: str) -> SmsChannelOut | None:
+    """Return a single channel by name, or None if not found."""
+    cfg = settings.SMS_CHANNELS.get(name)
+    if cfg is None:
+        return None
+    return _mask_channel(name, cfg)
+
+
+async def upsert_channel(name: str, data: SmsChannelCreate, db: AsyncSession) -> SmsChannelOut:
+    """Create or fully replace a named channel and persist."""
+    channels = dict(settings.SMS_CHANNELS)
+    channels[name] = data.model_dump(exclude_none=True)
+    settings.SMS_CHANNELS = channels
+    await _persist_config(db)
+    await db.commit()
+    log.info("admin.channel.upserted", channel=name)
+    return _mask_channel(name, channels[name])
+
+
+async def patch_channel(name: str, data: SmsChannelUpdate, db: AsyncSession) -> SmsChannelOut | None:
+    """Partially update a named channel. Returns None if not found."""
+    channels = dict(settings.SMS_CHANNELS)
+    if name not in channels:
+        return None
+    existing = dict(channels[name])
+    for key, value in data.model_dump(exclude_unset=True).items():
+        existing[key] = value
+    channels[name] = existing
+    settings.SMS_CHANNELS = channels
+    await _persist_config(db)
+    await db.commit()
+    log.info("admin.channel.patched", channel=name)
+    return _mask_channel(name, existing)
+
+
+async def delete_channel(name: str, db: AsyncSession) -> bool:
+    """Delete a named channel. Returns True when deleted, False when not found."""
+    channels = dict(settings.SMS_CHANNELS)
+    if name not in channels:
+        return False
+    del channels[name]
+    settings.SMS_CHANNELS = channels
+    await _persist_config(db)
+    await db.commit()
+    log.info("admin.channel.deleted", channel=name)
+    return True
+
+
+# ---------------------------------------------------------------------------
+# SMS Client Key CRUD
+# ---------------------------------------------------------------------------
+
+
+def list_client_keys() -> tuple[list[SmsClientKeyOut], int]:
+    """Return all configured client-key→channel mappings."""
+    items = [SmsClientKeyOut(api_key=k, channel=v) for k, v in settings.SMS_CLIENT_KEYS.items()]
+    return items, len(items)
+
+
+async def create_client_key(data: SmsClientKeyCreate, db: AsyncSession) -> SmsClientKeyOut:
+    """Add (or overwrite) a client-key mapping and persist."""
+    keys = dict(settings.SMS_CLIENT_KEYS)
+    keys[data.api_key] = data.channel
+    settings.SMS_CLIENT_KEYS = keys
+    await _persist_config(db)
+    await db.commit()
+    log.info("admin.client_key.created", api_key=data.api_key[:4] + "****", channel=data.channel)
+    return SmsClientKeyOut(api_key=data.api_key, channel=data.channel)
+
+
+async def delete_client_key(api_key: str, db: AsyncSession) -> bool:
+    """Delete a client-key mapping. Returns True when deleted, False when not found."""
+    keys = dict(settings.SMS_CLIENT_KEYS)
+    if api_key not in keys:
+        return False
+    del keys[api_key]
+    settings.SMS_CLIENT_KEYS = keys
+    await _persist_config(db)
+    await db.commit()
+    log.info("admin.client_key.deleted", api_key=api_key[:4] + "****")
+    return True

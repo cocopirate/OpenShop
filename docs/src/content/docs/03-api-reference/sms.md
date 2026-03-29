@@ -16,8 +16,10 @@ title: 短信服务 API
 4. [验证码验证 SMS Verify](#验证码验证-sms-verify)
 5. [短信模板管理](#短信模板管理)
 6. [短信配置管理](#短信配置管理)
-7. [状态枚举](#状态枚举)
-8. [通用错误码](#通用错误码)
+7. [渠道管理](#渠道管理)
+8. [客户端 API Key 管理](#客户端-api-key-管理)
+9. [状态枚举](#状态枚举)
+10. [通用错误码](#通用错误码)
 
 ---
 
@@ -192,7 +194,7 @@ curl -X POST http://localhost:8010/api/sms/send \
 
 发送验证码短信。验证码由服务端生成并写入 Redis，TTL 由 `SMS_CODE_TTL` 配置（默认 300 秒）。同样受手机号与 IP 维度限频控制。
 
-**认证**：需在请求头携带 `X-API-Key`。当 `SMS_CLIENT_KEYS` 为空时 auth 关闭（不需要 Key）。API Key 关联的渠道决定实际使用的供应商。
+**认证**：需在请求头携带 `X-API-Key`。当未配置任何客户端 Key 时 auth 关闭（不需要 Key）。API Key 关联的渠道决定实际使用的供应商。
 
 **请求头**
 
@@ -773,9 +775,9 @@ curl http://localhost:8010/api/sms/config
 
 ### PUT /api/sms/config
 
-动态更新短信服务运行时配置，立即生效并**持久化到数据库**，服务重启后自动恢复。**SMS 供应商配置（凭据、限频、熔断器参数等）不通过环境变量管理，此接口是唯一的配置入口。**
+动态更新短信服务运行时配置（供应商凭据、限频参数、熔断器参数等），立即生效并**持久化到数据库**，服务重启后自动恢复。
 
-`sms_channels` 和 `sms_client_keys` 均为**增量合并**：传入字段将被新增或覆盖，未传字段保持不变；将值设为 `null` 可删除该条目。供应商凭据字段（`chuanglan`/`aliyun`/`aliyun_phone_svc`/`tencent`）同样为部分更新，只修改传入的子字段。
+> **提示**：渠道（Channel）和客户端 API Key 推荐使用专用 CRUD 端点管理（见[渠道管理](#渠道管理)和[客户端 API Key 管理](#客户端-api-key-管理)）。`sms_channels` 和 `sms_client_keys` 字段仍支持，为增量合并语义。
 
 **请求体（全部字段可选）**
 
@@ -797,16 +799,6 @@ curl http://localhost:8010/api/sms/config
 | aliyun | object | — | 阿里云短信凭据（部分更新） |
 | aliyun_phone_svc | object | — | 阿里云号码认证凭据（部分更新） |
 | tencent | object | — | 腾讯云凭据（部分更新） |
-
-**`sms_channels` 渠道配置字段**
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| provider | string | 供应商标识（`aliyun` / `aliyun_phone_svc` / `tencent` / `chuanglan`） |
-| access_key_id | string | Access Key ID |
-| access_key_secret | string | Access Key Secret |
-| sign_name | string | 短信签名 |
-| endpoint | string | API Endpoint（留空使用默认值） |
 
 **`chuanglan` 凭据字段**
 
@@ -834,29 +826,6 @@ curl http://localhost:8010/api/sms/config
 | app_id | string | SdkAppId |
 | sign_name | string | 短信签名 |
 
-**示例：新增渠道和客户端 Key**
-
-```http
-PUT /api/sms/config HTTP/1.1
-Host: localhost:8010
-Content-Type: application/json
-
-{
-  "sms_channels": {
-    "business_a": {
-      "provider": "aliyun_phone_svc",
-      "access_key_id": "LTAIxxxxxx",
-      "access_key_secret": "secret-a",
-      "sign_name": "A业务",
-      "endpoint": "dypnsapi.aliyuncs.com"
-    }
-  },
-  "sms_client_keys": {
-    "key-business-a-001": "business_a"
-  }
-}
-```
-
 **示例：更新供应商凭据**
 
 ```http
@@ -875,7 +844,7 @@ Content-Type: application/json
 }
 ```
 
-**示例：删除渠道或 Key**
+**示例：调整限频和熔断器参数**
 
 ```http
 PUT /api/sms/config HTTP/1.1
@@ -883,12 +852,405 @@ Host: localhost:8010
 Content-Type: application/json
 
 {
-  "sms_channels": { "business_a": null },
-  "sms_client_keys": { "key-business-a-001": null }
+  "sms_rate_limit_phone_per_minute": 1,
+  "sms_rate_limit_phone_per_day": 10,
+  "sms_provider_failure_threshold": 3,
+  "sms_provider_recovery_timeout": 60
 }
 ```
 
 **响应示例（200 OK）**：同 `GET /api/sms/config` 响应结构。
+
+---
+
+## 渠道管理
+
+渠道（Channel）为不同业务方提供独立的供应商和凭据，通过渠道名与客户端 API Key 绑定实现多租户路由。所有变更**立即生效并持久化到数据库**。
+
+响应中密钥字段（`access_key_secret` / `password` / `secret_key`）脱敏为 `"***"`，未配置时不返回该字段。
+
+### GET /api/sms/channels
+
+查询所有已配置渠道列表。
+
+**请求示例**
+
+```http
+GET /api/sms/channels HTTP/1.1
+Host: localhost:8010
+```
+
+```bash
+curl http://localhost:8010/api/sms/channels
+```
+
+**响应示例（200 OK）**
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "total": 2,
+    "items": [
+      {
+        "name": "business_a",
+        "provider": "aliyun_phone_svc",
+        "access_key_id": "LTAIxxxxxx",
+        "access_key_secret": "***",
+        "sign_name": "A业务",
+        "endpoint": "dypnsapi.aliyuncs.com"
+      },
+      {
+        "name": "business_b",
+        "provider": "aliyun",
+        "access_key_id": "LTAIyyyyyy",
+        "access_key_secret": "***",
+        "sign_name": "B业务"
+      }
+    ]
+  },
+  "request_id": "a1234567-0000-0000-0000-000000000001"
+}
+```
+
+---
+
+### GET /api/sms/channels/{name}
+
+查询单个渠道详情。
+
+**路径参数**
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| name | string | 渠道名称 |
+
+**请求示例**
+
+```http
+GET /api/sms/channels/business_a HTTP/1.1
+Host: localhost:8010
+```
+
+```bash
+curl http://localhost:8010/api/sms/channels/business_a
+```
+
+**响应示例（200 OK）**
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "name": "business_a",
+    "provider": "aliyun_phone_svc",
+    "access_key_id": "LTAIxxxxxx",
+    "access_key_secret": "***",
+    "sign_name": "A业务",
+    "endpoint": "dypnsapi.aliyuncs.com"
+  },
+  "request_id": "a1234567-0000-0000-0000-000000000002"
+}
+```
+
+**错误响应**
+
+| 状态码 | 说明 |
+|--------|------|
+| 404 | 渠道不存在 |
+
+**404 响应示例**
+
+```json
+{
+  "code": 40505,
+  "message": "Channel 'business_x' not found",
+  "data": null,
+  "request_id": "a1234567-0000-0000-0000-000000000003"
+}
+```
+
+---
+
+### PUT /api/sms/channels/{name}
+
+创建或全量替换一个渠道配置。渠道名不存在时创建，已存在时完整替换。
+
+**路径参数**
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| name | string | 渠道名称 |
+
+**请求体**
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| provider | string | ✓ | 供应商（`aliyun` / `aliyun_phone_svc` / `tencent` / `chuanglan`）|
+| access_key_id | string | — | Access Key ID（阿里云） |
+| access_key_secret | string | — | Access Key Secret（阿里云） |
+| sign_name | string | — | 短信签名 |
+| endpoint | string | — | API Endpoint（留空使用默认值） |
+| account | string | — | 账号（创蓝云） |
+| password | string | — | 密码（创蓝云） |
+| api_url | string | — | API 地址（创蓝云） |
+| secret_id | string | — | SecretId（腾讯云） |
+| secret_key | string | — | SecretKey（腾讯云） |
+| app_id | string | — | SdkAppId（腾讯云） |
+
+**请求示例（阿里云号码认证）**
+
+```http
+PUT /api/sms/channels/business_a HTTP/1.1
+Host: localhost:8010
+Content-Type: application/json
+
+{
+  "provider": "aliyun_phone_svc",
+  "access_key_id": "LTAIxxxxxx",
+  "access_key_secret": "secret-a",
+  "sign_name": "A业务",
+  "endpoint": "dypnsapi.aliyuncs.com"
+}
+```
+
+```bash
+curl -X PUT http://localhost:8010/api/sms/channels/business_a \
+  -H "Content-Type: application/json" \
+  -d '{"provider":"aliyun_phone_svc","access_key_id":"LTAIxxxxxx","access_key_secret":"secret-a","sign_name":"A业务","endpoint":"dypnsapi.aliyuncs.com"}'
+```
+
+**请求示例（创蓝云）**
+
+```http
+PUT /api/sms/channels/business_c HTTP/1.1
+Host: localhost:8010
+Content-Type: application/json
+
+{
+  "provider": "chuanglan",
+  "account": "your_account",
+  "password": "your_password",
+  "api_url": "https://smsbj1.253.com/msg/send/json"
+}
+```
+
+**响应示例（201 Created）**
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "name": "business_a",
+    "provider": "aliyun_phone_svc",
+    "access_key_id": "LTAIxxxxxx",
+    "access_key_secret": "***",
+    "sign_name": "A业务",
+    "endpoint": "dypnsapi.aliyuncs.com"
+  },
+  "request_id": "a1234567-0000-0000-0000-000000000004"
+}
+```
+
+---
+
+### PATCH /api/sms/channels/{name}
+
+局部更新渠道配置，仅修改提交的字段，未提交的字段保留原值。
+
+**路径参数**
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| name | string | 渠道名称 |
+
+**请求体**：与 `PUT` 相同，但所有字段均为可选。
+
+**请求示例（仅更新签名）**
+
+```http
+PATCH /api/sms/channels/business_a HTTP/1.1
+Host: localhost:8010
+Content-Type: application/json
+
+{
+  "sign_name": "新A业务签名"
+}
+```
+
+```bash
+curl -X PATCH http://localhost:8010/api/sms/channels/business_a \
+  -H "Content-Type: application/json" \
+  -d '{"sign_name":"新A业务签名"}'
+```
+
+**响应示例（200 OK）**：同 `PUT` 响应结构。
+
+**错误响应**
+
+| 状态码 | 说明 |
+|--------|------|
+| 404 | 渠道不存在 |
+
+---
+
+### DELETE /api/sms/channels/{name}
+
+删除指定渠道。
+
+**路径参数**
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| name | string | 渠道名称 |
+
+**请求示例**
+
+```http
+DELETE /api/sms/channels/business_a HTTP/1.1
+Host: localhost:8010
+```
+
+```bash
+curl -X DELETE http://localhost:8010/api/sms/channels/business_a
+```
+
+**响应（204 No Content）**：无响应体。
+
+**错误响应**
+
+| 状态码 | 说明 |
+|--------|------|
+| 404 | 渠道不存在 |
+
+---
+
+## 客户端 API Key 管理
+
+客户端 API Key 将 `X-API-Key` 请求头映射到渠道名称，用于多租户路由鉴权。至少配置一条 Key 后，`POST /api/sms/send-code` 必须携带有效的 `X-API-Key`。所有变更**立即生效并持久化到数据库**。
+
+### GET /api/sms/client-keys
+
+查询所有 `X-API-Key → 渠道名称` 映射。
+
+**请求示例**
+
+```http
+GET /api/sms/client-keys HTTP/1.1
+Host: localhost:8010
+```
+
+```bash
+curl http://localhost:8010/api/sms/client-keys
+```
+
+**响应示例（200 OK）**
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "total": 2,
+    "items": [
+      { "api_key": "key-business-a-001", "channel": "business_a" },
+      { "api_key": "key-business-b-001", "channel": "business_b" }
+    ]
+  },
+  "request_id": "a1234567-0000-0000-0000-000000000005"
+}
+```
+
+---
+
+### POST /api/sms/client-keys
+
+新增一条 API Key → 渠道映射。Key 已存在时覆写渠道名称。
+
+**请求体**
+
+| 字段 | 类型 | 必填 | 约束 | 说明 |
+|------|------|------|------|------|
+| api_key | string | ✓ | 最长 128 字符 | 客户端 API Key |
+| channel | string | ✓ | 最长 64 字符 | 映射到的渠道名称 |
+
+**请求示例**
+
+```http
+POST /api/sms/client-keys HTTP/1.1
+Host: localhost:8010
+Content-Type: application/json
+
+{
+  "api_key": "key-business-a-001",
+  "channel": "business_a"
+}
+```
+
+```bash
+curl -X POST http://localhost:8010/api/sms/client-keys \
+  -H "Content-Type: application/json" \
+  -d '{"api_key":"key-business-a-001","channel":"business_a"}'
+```
+
+**响应示例（201 Created）**
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "api_key": "key-business-a-001",
+    "channel": "business_a"
+  },
+  "request_id": "a1234567-0000-0000-0000-000000000006"
+}
+```
+
+---
+
+### DELETE /api/sms/client-keys/{api_key}
+
+删除指定客户端 API Key 映射。
+
+**路径参数**
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| api_key | string | 要删除的 API Key |
+
+**请求示例**
+
+```http
+DELETE /api/sms/client-keys/key-business-a-001 HTTP/1.1
+Host: localhost:8010
+```
+
+```bash
+curl -X DELETE http://localhost:8010/api/sms/client-keys/key-business-a-001
+```
+
+**响应（204 No Content）**：无响应体。
+
+**错误响应**
+
+| 状态码 | 说明 |
+|--------|------|
+| 404 | API Key 不存在 |
+
+**404 响应示例**
+
+```json
+{
+  "code": 40506,
+  "message": "API key not found",
+  "data": null,
+  "request_id": "a1234567-0000-0000-0000-000000000007"
+}
+```
 
 ---
 
@@ -916,6 +1278,8 @@ Content-Type: application/json
 | 40502 | 422 | 验证码无效或已过期 |
 | 40503 | 404 | 短信模板不存在 |
 | 40504 | 404 | 短信记录不存在 |
+| 40505 | 404 | 渠道不存在 |
+| 40506 | 404 | 客户端 API Key 不存在 |
 | 50000 | 500 | 服务器内部错误 |
 
 **通用错误响应结构**

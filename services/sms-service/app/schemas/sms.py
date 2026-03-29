@@ -181,3 +181,79 @@ class SmsConfigUpdate(BaseModel):
     aliyun: Optional[AliyunCredentialsUpdate] = Field(None, description="阿里云短信凭据（部分更新）")
     aliyun_phone_svc: Optional[AliyunCredentialsUpdate] = Field(None, description="阿里云号码认证凭据（部分更新）")
     tencent: Optional[TencentCredentialsUpdate] = Field(None, description="腾讯云凭据（部分更新）")
+
+
+# ---------------------------------------------------------------------------
+# Admin – SMS Channel CRUD schemas
+# ---------------------------------------------------------------------------
+
+
+class SmsChannelCreate(BaseModel):
+    """Create or replace a named channel configuration."""
+    provider: str = Field(..., max_length=32, description="供应商标识（aliyun / aliyun_phone_svc / tencent / chuanglan）")
+    access_key_id: Optional[str] = Field(None, description="Access Key ID")
+    access_key_secret: Optional[str] = Field(None, description="Access Key Secret")
+    sign_name: Optional[str] = Field(None, description="短信签名")
+    endpoint: Optional[str] = Field(None, description="API Endpoint（留空使用默认值）")
+    account: Optional[str] = Field(None, description="账号（创蓝云）")
+    password: Optional[str] = Field(None, description="密码（创蓝云）")
+    api_url: Optional[str] = Field(None, description="API 地址（创蓝云）")
+    app_id: Optional[str] = Field(None, description="SdkAppId（腾讯云）")
+    secret_id: Optional[str] = Field(None, description="SecretId（腾讯云）")
+    secret_key: Optional[str] = Field(None, description="SecretKey（腾讯云）")
+
+
+class SmsChannelUpdate(BaseModel):
+    """Partial update for a named channel — only supplied fields are changed."""
+    provider: Optional[str] = Field(None, max_length=32, description="供应商标识")
+    access_key_id: Optional[str] = Field(None, description="Access Key ID")
+    access_key_secret: Optional[str] = Field(None, description="Access Key Secret")
+    sign_name: Optional[str] = Field(None, description="短信签名")
+    endpoint: Optional[str] = Field(None, description="API Endpoint")
+    account: Optional[str] = Field(None, description="账号（创蓝云）")
+    password: Optional[str] = Field(None, description="密码（创蓝云）")
+    api_url: Optional[str] = Field(None, description="API 地址（创蓝云）")
+    app_id: Optional[str] = Field(None, description="SdkAppId（腾讯云）")
+    secret_id: Optional[str] = Field(None, description="SecretId（腾讯云）")
+    secret_key: Optional[str] = Field(None, description="SecretKey（腾讯云）")
+
+
+class SmsChannelOut(BaseModel):
+    """Channel config returned to the client — secrets masked."""
+    name: str
+    provider: str
+    access_key_id: Optional[str] = None
+    access_key_secret: Optional[str] = None  # always "***" when set
+    sign_name: Optional[str] = None
+    endpoint: Optional[str] = None
+    account: Optional[str] = None
+    password: Optional[str] = None  # always "***" when set
+    api_url: Optional[str] = None
+    app_id: Optional[str] = None
+    secret_id: Optional[str] = None
+    secret_key: Optional[str] = None  # always "***" when set
+
+
+class SmsChannelListResponse(BaseModel):
+    total: int
+    items: List[SmsChannelOut]
+
+
+# ---------------------------------------------------------------------------
+# Admin – SMS Client Key CRUD schemas
+# ---------------------------------------------------------------------------
+
+
+class SmsClientKeyCreate(BaseModel):
+    api_key: str = Field(..., max_length=128, description="客户端 API Key（X-API-Key 头）")
+    channel: str = Field(..., max_length=64, description="映射到的渠道名称")
+
+
+class SmsClientKeyOut(BaseModel):
+    api_key: str
+    channel: str
+
+
+class SmsClientKeyListResponse(BaseModel):
+    total: int
+    items: List[SmsClientKeyOut]

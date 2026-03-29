@@ -12,6 +12,8 @@ from app.core.metrics import sms_rate_limit_triggered_total
 from app.core.rate_limiter import check_ip_rate_limit, check_phone_rate_limit
 from app.core.redis import get_redis
 from app.core.response import (
+    SMS_CHANNEL_NOT_FOUND,
+    SMS_CLIENT_KEY_NOT_FOUND,
     SMS_INVALID_CODE,
     SMS_RATE_LIMIT_EXCEEDED,
     SMS_RECORD_NOT_FOUND,
@@ -23,6 +25,13 @@ from app.core.response import (
 from app.models.sms_record import SmsStatus
 from app.schemas.sms import (
     SendCodeRequest,
+    SmsChannelCreate,
+    SmsChannelListResponse,
+    SmsChannelOut,
+    SmsChannelUpdate,
+    SmsClientKeyCreate,
+    SmsClientKeyListResponse,
+    SmsClientKeyOut,
     SmsConfigOut,
     SmsConfigUpdate,
     SmsSendRequest,
@@ -37,14 +46,22 @@ from app.schemas.sms import (
     SmsVerifyResponse,
 )
 from app.services.admin_service import (
+    create_client_key,
     create_template,
+    delete_channel,
+    delete_client_key,
     delete_record,
     delete_template,
+    get_channel,
     get_sms_config,
     get_template,
+    list_channels,
+    list_client_keys,
     list_templates,
+    patch_channel,
     update_sms_config,
     update_template,
+    upsert_channel,
 )
 from app.services.sms_service import (
     get_sms_records,
@@ -396,3 +413,142 @@ async def update_sms_config_endpoint(data: SmsConfigUpdate, db: AsyncSession = D
     return JSONResponse(
         content=ok(SmsConfigOut.model_validate(updated).model_dump(mode="json")),
     )
+
+
+# ---------------------------------------------------------------------------
+# SMS Channels – CRUD
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/channels",
+    summary="查询渠道列表",
+    description="返回所有已配置的多租户渠道（access_key_secret 等敏感字段已脱敏）。",
+)
+async def list_channels_endpoint():
+    items, total = list_channels()
+    return JSONResponse(
+        content=ok(SmsChannelListResponse(
+            total=total,
+            items=items,
+        ).model_dump(mode="json")),
+    )
+
+
+@router.get(
+    "/channels/{channel_name}",
+    summary="查询渠道详情",
+)
+async def get_channel_endpoint(channel_name: str):
+    channel = get_channel(channel_name)
+    if channel is None:
+        return JSONResponse(
+            status_code=404,
+            content=err(SMS_CHANNEL_NOT_FOUND, f"Channel '{channel_name}' not found"),
+        )
+    return JSONResponse(content=ok(channel.model_dump(mode="json")))
+
+
+@router.put(
+    "/channels/{channel_name}",
+    status_code=201,
+    summary="创建或替换渠道",
+    description="以 channel_name 为 key 完整写入渠道配置，若已存在则全量替换。",
+)
+async def upsert_channel_endpoint(
+    channel_name: str,
+    data: SmsChannelCreate,
+    db: AsyncSession = Depends(get_db),
+):
+    channel = await upsert_channel(channel_name, data, db)
+    return JSONResponse(
+        status_code=201,
+        content=ok(channel.model_dump(mode="json")),
+    )
+
+
+@router.patch(
+    "/channels/{channel_name}",
+    summary="局部更新渠道",
+    description="仅更新提交的字段，未提交的字段保留原值。",
+)
+async def patch_channel_endpoint(
+    channel_name: str,
+    data: SmsChannelUpdate,
+    db: AsyncSession = Depends(get_db),
+):
+    channel = await patch_channel(channel_name, data, db)
+    if channel is None:
+        return JSONResponse(
+            status_code=404,
+            content=err(SMS_CHANNEL_NOT_FOUND, f"Channel '{channel_name}' not found"),
+        )
+    return JSONResponse(content=ok(channel.model_dump(mode="json")))
+
+
+@router.delete(
+    "/channels/{channel_name}",
+    status_code=204,
+    summary="删除渠道",
+)
+async def delete_channel_endpoint(
+    channel_name: str,
+    db: AsyncSession = Depends(get_db),
+):
+    deleted = await delete_channel(channel_name, db)
+    if not deleted:
+        return JSONResponse(
+            status_code=404,
+            content=err(SMS_CHANNEL_NOT_FOUND, f"Channel '{channel_name}' not found"),
+        )
+
+
+# ---------------------------------------------------------------------------
+# SMS Client Keys – CRUD
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/client-keys",
+    summary="查询客户端 API Key 列表",
+    description="返回所有 X-API-Key → 渠道名称 映射。",
+)
+async def list_client_keys_endpoint():
+    items, total = list_client_keys()
+    return JSONResponse(
+        content=ok(SmsClientKeyListResponse(total=total, items=items).model_dump(mode="json")),
+    )
+
+
+@router.post(
+    "/client-keys",
+    status_code=201,
+    summary="创建客户端 API Key",
+    description="新增或覆写一条 API Key → 渠道 映射；Key 已存在时更新渠道名称。",
+)
+async def create_client_key_endpoint(
+    data: SmsClientKeyCreate,
+    db: AsyncSession = Depends(get_db),
+):
+    key = await create_client_key(data, db)
+    return JSONResponse(
+        status_code=201,
+        content=ok(SmsClientKeyOut.model_validate(key).model_dump(mode="json")),
+    )
+
+
+@router.delete(
+    "/client-keys/{api_key}",
+    status_code=204,
+    summary="删除客户端 API Key",
+)
+async def delete_client_key_endpoint(
+    api_key: str,
+    db: AsyncSession = Depends(get_db),
+):
+    deleted = await delete_client_key(api_key, db)
+    if not deleted:
+        return JSONResponse(
+            status_code=404,
+            content=err(SMS_CLIENT_KEY_NOT_FOUND, f"API key not found"),
+        )

@@ -42,6 +42,8 @@ SMS_RATE_LIMIT_EXCEEDED = 40501
 SMS_INVALID_CODE = 40502
 SMS_TEMPLATE_NOT_FOUND = 40503
 SMS_RECORD_NOT_FOUND = 40504
+SMS_CHANNEL_NOT_FOUND = 40505
+SMS_CLIENT_KEY_NOT_FOUND = 40506
 
 # --------------------------------------------------------------------------- #
 # HTTP status → business error code default mapping                            #

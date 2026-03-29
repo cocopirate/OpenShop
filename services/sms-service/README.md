@@ -8,7 +8,7 @@
 sms-service/
 ├── app/
 │   ├── api/v1/
-│   │   └── router.py         # 全部路由（发送/验证/模板/配置）
+│   │   └── router.py         # 全部路由（发送/验证/模板/渠道/客户端Key/配置）
 │   ├── core/
 │   │   ├── config.py         # pydantic-settings 配置
 │   │   ├── database.py       # SQLAlchemy 异步引擎 + 会话
@@ -27,7 +27,7 @@ sms-service/
 │   │   └── sms.py            # Pydantic 请求/响应 schema
 │   ├── services/
 │   │   ├── sms_service.py    # 核心业务逻辑（发送/验证/幂等）
-│   │   └── admin_service.py  # 模板 CRUD + 配置管理
+│   │   └── admin_service.py  # 模板 CRUD + 渠道/客户端 Key CRUD + 配置管理
 │   ├── providers/
 │   │   ├── __init__.py       # BaseSmsProvider / SendResult / StatusResult
 │   │   ├── factory.py        # 供应商工厂 + 熔断器
@@ -76,7 +76,25 @@ sms-service/
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | `GET` | `/api/sms/config` | 查询运行时配置（供应商凭据已脱敏） |
-| `PUT` | `/api/sms/config` | 更新配置（包括供应商凭据）；变更立即生效并**持久化到 DB**，重启后自动恢复 |
+| `PUT` | `/api/sms/config` | 批量更新配置（供应商凭据、限频、熔断器参数等）；变更立即生效并**持久化到 DB**，重启后自动恢复 |
+
+### 渠道管理
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `GET` | `/api/sms/channels` | 查询渠道列表（敏感字段已脱敏） |
+| `GET` | `/api/sms/channels/{name}` | 查询单个渠道详情 |
+| `PUT` | `/api/sms/channels/{name}` | 创建或全量替换渠道配置 |
+| `PATCH` | `/api/sms/channels/{name}` | 局部更新渠道字段 |
+| `DELETE` | `/api/sms/channels/{name}` | 删除渠道 |
+
+### 客户端 API Key 管理
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `GET` | `/api/sms/client-keys` | 查询所有 `X-API-Key → 渠道名称` 映射 |
+| `POST` | `/api/sms/client-keys` | 添加或覆写一条映射 |
+| `DELETE` | `/api/sms/client-keys/{api_key}` | 删除指定 API Key |
 
 ### 健康检测
 
@@ -92,7 +110,7 @@ sms-service/
 
 **SmsTemplate** – 供应商模板 ID 与本地名称的映射，支持多供应商、启用/禁用状态。
 
-**SmsConfigStore** – 单行 JSON 配置表（id=1），持久化所有通过 `PUT /api/sms/config` 修改的运行时配置（含供应商凭据）。服务启动时加载此表并覆盖环境变量默认值。
+**SmsConfigStore** – 单行 JSON 配置表（id=1），持久化所有运行时配置（供应商凭据、限频参数、熔断器参数、渠道路由、客户端 API Key 等）。服务启动时加载此表并覆盖默认值。
 
 ## 供应商
 
@@ -111,7 +129,9 @@ sms-service/
 
 ### 多租户渠道路由
 
-`SMS_CHANNELS` 为不同业务方提供独立的供应商和凭据；`SMS_CLIENT_KEYS` 将外部 API Key 映射到渠道名称。配置了 `SMS_CLIENT_KEYS` 后，`POST /api/sms/send-code` 必须携带合法的 `X-API-Key`。
+渠道（Channel）为不同业务方提供独立的供应商和凭据；客户端 API Key 将外部请求的 `X-API-Key` 映射到渠道名称。两者均通过管理后台 API **持久化到数据库**，服务重启后自动恢复。
+
+配置了至少一条客户端 Key 后，`POST /api/sms/send-code` 必须携带合法的 `X-API-Key` 请求头。
 
 ```
 外部 A 业务  →  X-API-Key: key-a  →  business_a 渠道  →  aliyun_phone_svc（独立密钥）
@@ -120,9 +140,21 @@ sms-service/
 ```
 
 ```bash
-# .env 配置示例
-SMS_CHANNELS='{"business_a": {"provider": "aliyun_phone_svc", "access_key_id": "k1", "access_key_secret": "s1", "sign_name": "A业务", "endpoint": "dypnsapi.aliyuncs.com"}}'
-SMS_CLIENT_KEYS='{"key-a-001": "business_a"}'
+# 创建渠道
+curl -X PUT http://localhost:8010/api/sms/channels/business_a \
+  -H "Content-Type: application/json" \
+  -d '{
+    "provider": "aliyun_phone_svc",
+    "access_key_id": "k1",
+    "access_key_secret": "s1",
+    "sign_name": "A业务",
+    "endpoint": "dypnsapi.aliyuncs.com"
+  }'
+
+# 绑定客户端 API Key → 渠道
+curl -X POST http://localhost:8010/api/sms/client-keys \
+  -H "Content-Type: application/json" \
+  -d '{"api_key": "key-a-001", "channel": "business_a"}'
 ```
 
 ## 核心机制
@@ -150,7 +182,7 @@ SMS_CLIENT_KEYS='{"key-a-001": "business_a"}'
 
 ## 配置参考
 
-SMS 供应商相关配置（凭据、限频、熔断器、渠道路由等）**不通过环境变量管理**，全部使用 `PUT /api/sms/config` 写入数据库并持久化。服务重启时自动从 `sms_config_store` 表恢复，无需任何 SMS 相关的 `.env` 条目。
+SMS 供应商相关配置（凭据、限频、熔断器参数、渠道路由、客户端 Key 等）**不通过环境变量管理**，全部使用管理后台 API 写入数据库并持久化。服务重启时自动从 `sms_config_store` 表恢复，无需任何 SMS 相关的 `.env` 条目。
 
 `.env` 只需配置基础设施连接信息：
 
@@ -198,6 +230,39 @@ curl -X PUT http://localhost:8010/api/sms/config \
     "sms_provider_failure_threshold": 3,
     "sms_provider_recovery_timeout": 60
   }'
+```
+
+### 首次部署：多租户渠道路由配置
+
+```bash
+# 新建渠道（全量写入）
+curl -X PUT http://localhost:8010/api/sms/channels/business_a \
+  -H "Content-Type: application/json" \
+  -d '{
+    "provider": "aliyun_phone_svc",
+    "access_key_id": "k1",
+    "access_key_secret": "s1",
+    "sign_name": "A业务"
+  }'
+
+# 局部更新渠道（只改 sign_name）
+curl -X PATCH http://localhost:8010/api/sms/channels/business_a \
+  -H "Content-Type: application/json" \
+  -d '{"sign_name": "新签名"}'
+
+# 绑定客户端 API Key → 渠道
+curl -X POST http://localhost:8010/api/sms/client-keys \
+  -H "Content-Type: application/json" \
+  -d '{"api_key": "key-a-001", "channel": "business_a"}'
+
+# 查询当前渠道列表
+curl http://localhost:8010/api/sms/channels
+
+# 删除渠道
+curl -X DELETE http://localhost:8010/api/sms/channels/business_a
+
+# 删除客户端 Key
+curl -X DELETE http://localhost:8010/api/sms/client-keys/key-a-001
 ```
 
 ## 本地开发
