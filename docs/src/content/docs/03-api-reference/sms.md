@@ -15,7 +15,7 @@ title: 短信服务 API
 3. [发送记录](#发送记录)
 4. [验证码验证 SMS Verify](#验证码验证-sms-verify)
 5. [短信模板管理](#短信模板管理)
-6. [短信配置管理](#短信配置管理)
+6. [策略管理](#策略管理)
 7. [渠道管理](#渠道管理)
 8. [客户端 API Key 管理](#客户端-api-key-管理)
 9. [状态枚举](#状态枚举)
@@ -697,127 +697,19 @@ curl -X DELETE http://localhost:8010/api/sms/templates/1
 
 ---
 
-## 短信配置管理
+## 策略管理
 
-### GET /api/sms/config
+策略（SmsPolicy）封装限频规则、验证码 TTL、熔断器参数和备用渠道，多个渠道可共享同一策略。服务启动时自动创建名为 `default` 的内置策略。
 
-查询当前短信服务运行时配置。密钥类字段（`access_key_secret`/`password`/`secret_key`）脱敏为 `"***"`，未配置时为空字符串。
+### GET /api/sms/policies
 
-**请求示例**
-
-```http
-GET /api/sms/config HTTP/1.1
-Host: localhost:8010
-```
-
-```bash
-curl http://localhost:8010/api/sms/config
-```
-
-**响应示例（200 OK）**
-
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "sms_default_channel": "_default",
-    "sms_code_ttl": 300,
-    "sms_rate_limit_phone_per_minute": 1,
-    "sms_rate_limit_phone_per_day": 10,
-    "sms_rate_limit_ip_per_minute": 10,
-    "sms_rate_limit_ip_per_day": 100,
-    "sms_records_retention_days": 90,
-    "sms_channels": {
-      "business_a": {
-        "provider": "aliyun_phone_svc",
-        "access_key_id": "LTAIxxxxxx",
-        "access_key_secret": "***",
-        "sign_name": "A业务",
-        "endpoint": "dypnsapi.aliyuncs.com",
-        "failure_threshold": 3,
-        "recovery_timeout": 60,
-        "fallback_channel": "business_b"
-      }
-    },
-    "sms_client_keys": {
-      "key-business-a-001": "business_a"
-    }
-  },
-  "request_id": "m5384701-37p5-4421-l79p-92lnonol0knlo"
-}
-```
-
----
-
-### PUT /api/sms/config
-
-动态更新短信服务运行时配置（限频阈值、验证码 TTL、默认渠道等），立即生效并**持久化到数据库**，服务重启后自动恢复。
-
-> **提示**：供应商凭据和熔断策略均在渠道（Channel）中配置，请使用专用 CRUD 端点管理（见[渠道管理](#渠道管理)）。
-
-**请求体（全部字段可选）**
-
-| 字段 | 类型 | 约束 | 说明 |
-|------|------|------|------|
-| sms_default_channel | string | 最长 64 字符 | 无 X-API-Key 时使用的默认渠道名称 |
-| sms_code_ttl | int | ≥ 60 | 验证码有效期（秒） |
-| sms_rate_limit_phone_per_minute | int | ≥ 1 | 单手机号每分钟发送上限 |
-| sms_rate_limit_phone_per_day | int | ≥ 1 | 单手机号每日发送上限 |
-| sms_rate_limit_ip_per_minute | int | ≥ 1 | 单 IP 每分钟发送上限 |
-| sms_rate_limit_ip_per_day | int | ≥ 1 | 单 IP 每日发送上限 |
-| sms_records_retention_days | int | ≥ 0 | 发送记录保留天数，0 表示永久保留 |
-
-**示例：切换默认渠道**
-
-```http
-PUT /api/sms/config HTTP/1.1
-Host: localhost:8010
-Content-Type: application/json
-
-{
-  "sms_default_channel": "internal"
-}
-```
-
-**示例：调整限频参数**
-
-```http
-PUT /api/sms/config HTTP/1.1
-Host: localhost:8010
-Content-Type: application/json
-
-{
-  "sms_rate_limit_phone_per_minute": 1,
-  "sms_rate_limit_phone_per_day": 10,
-  "sms_rate_limit_ip_per_minute": 10,
-  "sms_rate_limit_ip_per_day": 100
-}
-```
-
-**响应示例（200 OK）**：同 `GET /api/sms/config` 响应结构。
-
----
-
-## 渠道管理
-
-渠道（Channel）为不同业务方提供独立的供应商和凭据，通过渠道名与客户端 API Key 绑定实现多租户路由。所有变更**立即生效并持久化到数据库**。
-
-响应中密钥字段（`access_key_secret` / `password` / `secret_key`）脱敏为 `"***"`，未配置时不返回该字段。
-
-### GET /api/sms/channels
-
-查询所有已配置渠道列表。
+查询所有策略列表。
 
 **请求示例**
 
 ```http
-GET /api/sms/channels HTTP/1.1
+GET /api/sms/policies HTTP/1.1
 Host: localhost:8010
-```
-
-```bash
-curl http://localhost:8010/api/sms/channels
 ```
 
 **响应示例（200 OK）**
@@ -830,24 +722,179 @@ curl http://localhost:8010/api/sms/channels
     "total": 2,
     "items": [
       {
-        "name": "business_a",
-        "provider": "aliyun_phone_svc",
+        "name": "default",
+        "code_ttl": 300,
+        "rate_limit_phone_per_minute": 1,
+        "rate_limit_phone_per_day": 10,
+        "rate_limit_ip_per_minute": 10,
+        "rate_limit_ip_per_day": 100,
+        "records_retention_days": 90,
+        "failure_threshold": 3,
+        "recovery_timeout": 60,
+        "fallback_channel": null,
+        "created_at": "2024-07-01T00:00:00Z",
+        "updated_at": "2024-07-01T00:00:00Z"
+      }
+    ]
+  },
+  "request_id": "a1234567-0000-0000-0000-000000000010"
+}
+```
+
+---
+
+### GET /api/sms/policies/{name}
+
+查询单个策略详情。
+
+**错误响应**
+
+| 状态码 | 说明 |
+|--------|------|
+| 404 | 策略不存在 |
+
+---
+
+### PUT /api/sms/policies/{name}
+
+创建或全量替换策略。
+
+**请求体**
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| code_ttl | int | ≥ 60，默认 300 | 验证码有效期（秒） |
+| rate_limit_phone_per_minute | int | ≥ 1，默认 1 | 单手机号每分钟发送上限 |
+| rate_limit_phone_per_day | int | ≥ 1，默认 10 | 单手机号每日发送上限 |
+| rate_limit_ip_per_minute | int | ≥ 1，默认 10 | 单 IP 每分钟发送上限 |
+| rate_limit_ip_per_day | int | ≥ 1，默认 100 | 单 IP 每日发送上限 |
+| records_retention_days | int | ≥ 0，默认 90 | 发送记录保留天数，0 表示永久保留 |
+| failure_threshold | int | ≥ 1，默认 3 | 熔断阈值（连续失败次数） |
+| recovery_timeout | int | ≥ 1，默认 60 | 熔断恢复等待时间（秒） |
+| fallback_channel | string | 最长 64 字符 | 熔断后切换的备用渠道名称 |
+
+**请求示例**
+
+```http
+PUT /api/sms/policies/default HTTP/1.1
+Host: localhost:8010
+Content-Type: application/json
+
+{
+  "code_ttl": 300,
+  "rate_limit_phone_per_minute": 1,
+  "rate_limit_phone_per_day": 10,
+  "rate_limit_ip_per_minute": 10,
+  "rate_limit_ip_per_day": 100,
+  "records_retention_days": 90,
+  "failure_threshold": 3,
+  "recovery_timeout": 60,
+  "fallback_channel": null
+}
+```
+
+**响应示例（201 Created）**：返回策略完整对象。
+
+---
+
+### PATCH /api/sms/policies/{name}
+
+局部更新策略，仅修改提交的字段。
+
+**请求示例**
+
+```http
+PATCH /api/sms/policies/default HTTP/1.1
+Host: localhost:8010
+Content-Type: application/json
+
+{
+  "code_ttl": 600,
+  "failure_threshold": 5
+}
+```
+
+**错误响应**
+
+| 状态码 | 说明 |
+|--------|------|
+| 404 | 策略不存在 |
+
+---
+
+### DELETE /api/sms/policies/{name}
+
+删除策略。**被渠道引用的策略无法删除**，返回 409。
+
+**错误响应**
+
+| 状态码 | 说明 |
+|--------|------|
+| 404 | 策略不存在 |
+| 409 | 策略被一个或多个渠道引用 |
+
+**409 响应示例**
+
+```json
+{
+  "code": 40508,
+  "message": "Policy 'default' is referenced by one or more channels",
+  "data": null,
+  "request_id": "a1234567-0000-0000-0000-000000000011"
+}
+```
+
+---
+
+## 渠道管理
+
+渠道（SmsChannel）为不同业务方提供独立的供应商和凭据，通过 `policy_name` 关联策略（策略决定限频、验证码 TTL、熔断器参数等）。服务启动时若无渠道则自动创建 `_default` 渠道。
+
+响应中密钥字段（`access_key_secret` / `password` / `secret_key`）脱敏为 `"***"`。
+
+### GET /api/sms/channels
+
+查询所有已配置渠道列表。
+
+**请求示例**
+
+```http
+GET /api/sms/channels HTTP/1.1
+Host: localhost:8010
+```
+
+**响应示例（200 OK）**
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "total": 2,
+    "items": [
+      {
+        "name": "_default",
+        "is_default": true,
+        "provider": "aliyun",
+        "policy_name": "default",
         "access_key_id": "LTAIxxxxxx",
+        "access_key_secret": "***",
+        "sign_name": "你的签名",
+        "endpoint": null,
+        "created_at": "2024-07-01T00:00:00Z",
+        "updated_at": "2024-07-01T00:00:00Z"
+      },
+      {
+        "name": "business_a",
+        "is_default": false,
+        "provider": "aliyun_phone_svc",
+        "policy_name": "internal",
+        "access_key_id": "LTAIyyyyyy",
         "access_key_secret": "***",
         "sign_name": "A业务",
         "endpoint": "dypnsapi.aliyuncs.com",
-        "failure_threshold": 3,
-        "recovery_timeout": 60,
-        "fallback_channel": "business_b"
-      },
-      {
-        "name": "business_b",
-        "provider": "aliyun",
-        "access_key_id": "LTAIyyyyyy",
-        "access_key_secret": "***",
-        "sign_name": "B业务",
-        "failure_threshold": 3,
-        "recovery_timeout": 60
+        "created_at": "2024-07-01T00:00:00Z",
+        "updated_at": "2024-07-01T00:00:00Z"
       }
     ]
   },
@@ -861,60 +908,11 @@ curl http://localhost:8010/api/sms/channels
 
 查询单个渠道详情。
 
-**路径参数**
-
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| name | string | 渠道名称 |
-
-**请求示例**
-
-```http
-GET /api/sms/channels/business_a HTTP/1.1
-Host: localhost:8010
-```
-
-```bash
-curl http://localhost:8010/api/sms/channels/business_a
-```
-
-**响应示例（200 OK）**
-
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "name": "business_a",
-    "provider": "aliyun_phone_svc",
-    "access_key_id": "LTAIxxxxxx",
-    "access_key_secret": "***",
-    "sign_name": "A业务",
-    "endpoint": "dypnsapi.aliyuncs.com",
-    "failure_threshold": 3,
-    "recovery_timeout": 60,
-    "fallback_channel": "business_b"
-  },
-  "request_id": "a1234567-0000-0000-0000-000000000002"
-}
-```
-
 **错误响应**
 
 | 状态码 | 说明 |
 |--------|------|
 | 404 | 渠道不存在 |
-
-**404 响应示例**
-
-```json
-{
-  "code": 40505,
-  "message": "Channel 'business_x' not found",
-  "data": null,
-  "request_id": "a1234567-0000-0000-0000-000000000003"
-}
-```
 
 ---
 
@@ -922,17 +920,13 @@ curl http://localhost:8010/api/sms/channels/business_a
 
 创建或全量替换一个渠道配置。渠道名不存在时创建，已存在时完整替换。
 
-**路径参数**
-
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| name | string | 渠道名称 |
-
 **请求体**
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | provider | string | ✓ | 供应商（`aliyun` / `aliyun_phone_svc` / `tencent` / `chuanglan`）|
+| is_default | bool | — | 是否为默认渠道（同时清除其他渠道的 is_default）|
+| policy_name | string | — | 关联策略名称，留空时使用 `default` 策略 |
 | access_key_id | string | — | Access Key ID（阿里云） |
 | access_key_secret | string | — | Access Key Secret（阿里云） |
 | sign_name | string | — | 短信签名 |
@@ -943,9 +937,6 @@ curl http://localhost:8010/api/sms/channels/business_a
 | secret_id | string | — | SecretId（腾讯云） |
 | secret_key | string | — | SecretKey（腾讯云） |
 | app_id | string | — | SdkAppId（腾讯云） |
-| failure_threshold | int | — | 熔断阈值（连续失败次数，默认 3，≥1） |
-| recovery_timeout | int | — | 熔断恢复等待时间（秒，默认 60，≥1） |
-| fallback_channel | string | — | 熔断后切换的备用渠道名称，最长 64 字符 |
 
 **请求示例（阿里云号码认证）**
 
@@ -956,20 +947,13 @@ Content-Type: application/json
 
 {
   "provider": "aliyun_phone_svc",
+  "is_default": false,
+  "policy_name": "internal",
   "access_key_id": "LTAIxxxxxx",
   "access_key_secret": "secret-a",
   "sign_name": "A业务",
-  "endpoint": "dypnsapi.aliyuncs.com",
-  "failure_threshold": 3,
-  "recovery_timeout": 60,
-  "fallback_channel": "business_b"
+  "endpoint": "dypnsapi.aliyuncs.com"
 }
-```
-
-```bash
-curl -X PUT http://localhost:8010/api/sms/channels/business_a \
-  -H "Content-Type: application/json" \
-  -d '{"provider":"aliyun_phone_svc","access_key_id":"LTAIxxxxxx","access_key_secret":"secret-a","sign_name":"A业务","endpoint":"dypnsapi.aliyuncs.com","failure_threshold":3,"recovery_timeout":60,"fallback_channel":"business_b"}'
 ```
 
 **请求示例（创蓝云）**
@@ -981,11 +965,10 @@ Content-Type: application/json
 
 {
   "provider": "chuanglan",
+  "policy_name": "default",
   "account": "your_account",
   "password": "your_password",
-  "api_url": "https://smsbj1.253.com/msg/send/json",
-  "failure_threshold": 5,
-  "recovery_timeout": 120
+  "api_url": "https://smsbj1.253.com/msg/send/json"
 }
 ```
 
@@ -997,14 +980,15 @@ Content-Type: application/json
   "message": "success",
   "data": {
     "name": "business_a",
+    "is_default": false,
     "provider": "aliyun_phone_svc",
+    "policy_name": "internal",
     "access_key_id": "LTAIxxxxxx",
     "access_key_secret": "***",
     "sign_name": "A业务",
     "endpoint": "dypnsapi.aliyuncs.com",
-    "failure_threshold": 3,
-    "recovery_timeout": 60,
-    "fallback_channel": "business_b"
+    "created_at": "2024-07-01T00:00:00Z",
+    "updated_at": "2024-07-01T00:00:00Z"
   },
   "request_id": "a1234567-0000-0000-0000-000000000004"
 }
@@ -1016,15 +1000,7 @@ Content-Type: application/json
 
 局部更新渠道配置，仅修改提交的字段，未提交的字段保留原值。
 
-**路径参数**
-
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| name | string | 渠道名称 |
-
-**请求体**：与 `PUT` 相同，但所有字段均为可选（包括 `failure_threshold`、`recovery_timeout`、`fallback_channel`）。
-
-**请求示例（仅更新签名）**
+**请求示例（仅更新签名和策略）**
 
 ```http
 PATCH /api/sms/channels/business_a HTTP/1.1
@@ -1032,27 +1008,8 @@ Host: localhost:8010
 Content-Type: application/json
 
 {
-  "sign_name": "新A业务签名"
-}
-```
-
-```bash
-curl -X PATCH http://localhost:8010/api/sms/channels/business_a \
-  -H "Content-Type: application/json" \
-  -d '{"sign_name":"新A业务签名"}'
-```
-
-**请求示例（调整熔断策略）**
-
-```http
-PATCH /api/sms/channels/business_a HTTP/1.1
-Host: localhost:8010
-Content-Type: application/json
-
-{
-  "failure_threshold": 5,
-  "recovery_timeout": 120,
-  "fallback_channel": "business_b"
+  "sign_name": "新A业务签名",
+  "policy_name": "internal"
 }
 ```
 
@@ -1069,23 +1026,6 @@ Content-Type: application/json
 ### DELETE /api/sms/channels/{name}
 
 删除指定渠道。
-
-**路径参数**
-
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| name | string | 渠道名称 |
-
-**请求示例**
-
-```http
-DELETE /api/sms/channels/business_a HTTP/1.1
-Host: localhost:8010
-```
-
-```bash
-curl -X DELETE http://localhost:8010/api/sms/channels/business_a
-```
 
 **响应（204 No Content）**：无响应体。
 
@@ -1249,6 +1189,8 @@ curl -X DELETE http://localhost:8010/api/sms/client-keys/key-business-a-001
 | 40504 | 404 | 短信记录不存在 |
 | 40505 | 404 | 渠道不存在 |
 | 40506 | 404 | 客户端 API Key 不存在 |
+| 40507 | 404 | 策略不存在 |
+| 40508 | 409 | 策略被渠道引用，无法删除 |
 | 50000 | 500 | 服务器内部错误 |
 
 **通用错误响应结构**

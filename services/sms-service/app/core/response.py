@@ -44,6 +44,8 @@ SMS_TEMPLATE_NOT_FOUND = 40503
 SMS_RECORD_NOT_FOUND = 40504
 SMS_CHANNEL_NOT_FOUND = 40505
 SMS_CLIENT_KEY_NOT_FOUND = 40506
+SMS_POLICY_NOT_FOUND = 40507
+SMS_POLICY_IN_USE = 40508
 
 # --------------------------------------------------------------------------- #
 # HTTP status → business error code default mapping                            #

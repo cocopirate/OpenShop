@@ -1,12 +1,13 @@
-"""Admin-side business logic: SMS template CRUD and configuration management."""
+"""Admin-side business logic: SMS template, policy, channel and client-key CRUD."""
 from typing import Optional
 
 import structlog
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
-from app.models.sms_config_store import SmsConfigStore
+from app.models.sms_channel import SmsChannel
+from app.models.sms_client_key import SmsClientKey
+from app.models.sms_policy import SmsPolicy
 from app.models.sms_record import SmsRecord
 from app.models.sms_template import SmsTemplate
 from app.schemas.sms import (
@@ -15,7 +16,9 @@ from app.schemas.sms import (
     SmsChannelUpdate,
     SmsClientKeyCreate,
     SmsClientKeyOut,
-    SmsConfigUpdate,
+    SmsPolicyCreate,
+    SmsPolicyOut,
+    SmsPolicyUpdate,
     SmsTemplateCreate,
     SmsTemplateUpdate,
 )
@@ -128,82 +131,83 @@ async def delete_record(db: AsyncSession, record_id: int) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# SMS Configuration management
+# SMS Policy CRUD
 # ---------------------------------------------------------------------------
 
-_PERSIST_KEYS = (
-    "SMS_DEFAULT_CHANNEL",
-    "SMS_CODE_TTL",
-    "SMS_RATE_LIMIT_PHONE_PER_MINUTE", "SMS_RATE_LIMIT_PHONE_PER_DAY",
-    "SMS_RATE_LIMIT_IP_PER_MINUTE", "SMS_RATE_LIMIT_IP_PER_DAY",
-    "SMS_RECORDS_RETENTION_DAYS",
-    "SMS_CHANNELS", "SMS_CLIENT_KEYS",
-)
+
+async def list_policies(db: AsyncSession) -> tuple[list[SmsPolicy], int]:
+    """Return all policies."""
+    total_result = await db.execute(select(func.count()).select_from(SmsPolicy))
+    total = total_result.scalar_one()
+    rows = await db.execute(select(SmsPolicy).order_by(SmsPolicy.name.asc()))
+    return list(rows.scalars().all()), total
 
 
-def get_sms_config() -> dict:
-    """Return a snapshot of the current runtime SMS configuration."""
-    masked_channels = {}
-    for name, cfg in settings.SMS_CHANNELS.items():
-        masked_channels[name] = _mask_channel_dict(cfg)
-
-    return {
-        "sms_default_channel": settings.SMS_DEFAULT_CHANNEL,
-        "sms_code_ttl": settings.SMS_CODE_TTL,
-        "sms_rate_limit_phone_per_minute": settings.SMS_RATE_LIMIT_PHONE_PER_MINUTE,
-        "sms_rate_limit_phone_per_day": settings.SMS_RATE_LIMIT_PHONE_PER_DAY,
-        "sms_rate_limit_ip_per_minute": settings.SMS_RATE_LIMIT_IP_PER_MINUTE,
-        "sms_rate_limit_ip_per_day": settings.SMS_RATE_LIMIT_IP_PER_DAY,
-        "sms_records_retention_days": settings.SMS_RECORDS_RETENTION_DAYS,
-        "sms_channels": masked_channels,
-        "sms_client_keys": dict(settings.SMS_CLIENT_KEYS),
-    }
+async def get_policy(db: AsyncSession, name: str) -> Optional[SmsPolicy]:
+    """Fetch a single policy by name."""
+    result = await db.execute(select(SmsPolicy).where(SmsPolicy.name == name))
+    return result.scalar_one_or_none()
 
 
-async def _persist_config(db: AsyncSession) -> None:
-    """Serialize current settings to the config store table (upsert id=1)."""
-    config = {key: getattr(settings, key) for key in _PERSIST_KEYS}
-    result = await db.execute(select(SmsConfigStore).where(SmsConfigStore.id == 1))
-    store = result.scalar_one_or_none()
-    if store:
-        store.config_json = config
-    else:
-        db.add(SmsConfigStore(id=1, config_json=config))
+async def upsert_policy(db: AsyncSession, name: str, data: SmsPolicyCreate) -> SmsPolicy:
+    """Create or fully replace a named policy."""
+    existing = await get_policy(db, name)
+    if existing:
+        for field, value in data.model_dump().items():
+            setattr(existing, field, value)
+        await db.flush()
+        await db.refresh(existing)
+        log.info("admin.policy.replaced", policy=name)
+        return existing
+
+    policy = SmsPolicy(name=name, **data.model_dump())
+    db.add(policy)
     await db.flush()
+    await db.refresh(policy)
+    log.info("admin.policy.created", policy=name)
+    return policy
 
 
-async def load_persisted_config(db: AsyncSession) -> None:
-    """Load stored config from DB and apply over the defaults in settings."""
-    result = await db.execute(select(SmsConfigStore).where(SmsConfigStore.id == 1))
-    store = result.scalar_one_or_none()
-    if not store:
-        return
-    for key, value in store.config_json.items():
-        if hasattr(settings, key) and value is not None:
-            setattr(settings, key, value)
-    log.info("admin.config.loaded_from_db")
+async def patch_policy(
+    db: AsyncSession, name: str, data: SmsPolicyUpdate
+) -> Optional[SmsPolicy]:
+    """Partially update a named policy. Returns None if not found."""
+    policy = await get_policy(db, name)
+    if policy is None:
+        return None
+
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(policy, field, value)
+
+    await db.flush()
+    await db.refresh(policy)
+    log.info("admin.policy.patched", policy=name)
+    return policy
 
 
-async def update_sms_config(data: SmsConfigUpdate, db: AsyncSession) -> dict:
-    """Apply a partial update to the runtime SMS configuration and persist to DB."""
-    scalar_mapping = {
-        "sms_default_channel": "SMS_DEFAULT_CHANNEL",
-        "sms_code_ttl": "SMS_CODE_TTL",
-        "sms_rate_limit_phone_per_minute": "SMS_RATE_LIMIT_PHONE_PER_MINUTE",
-        "sms_rate_limit_phone_per_day": "SMS_RATE_LIMIT_PHONE_PER_DAY",
-        "sms_rate_limit_ip_per_minute": "SMS_RATE_LIMIT_IP_PER_MINUTE",
-        "sms_rate_limit_ip_per_day": "SMS_RATE_LIMIT_IP_PER_DAY",
-        "sms_records_retention_days": "SMS_RECORDS_RETENTION_DAYS",
-    }
-    changed = data.model_dump(exclude_unset=True)
-    for field, value in changed.items():
-        if field in scalar_mapping:
-            setattr(settings, scalar_mapping[field], value)
+async def delete_policy(db: AsyncSession, name: str) -> tuple[bool, bool]:
+    """Delete a named policy.
 
-    await _persist_config(db)
-    await db.commit()
-    log.info("admin.config.updated", changed=list(changed.keys()))
-    return get_sms_config()
+    Returns (deleted, in_use):
+      - (True, False)  – deleted successfully
+      - (False, False) – not found
+      - (False, True)  – policy is referenced by at least one channel
+    """
+    policy = await get_policy(db, name)
+    if policy is None:
+        return False, False
+
+    # Check if any channel references this policy
+    ref_result = await db.execute(
+        select(func.count()).select_from(SmsChannel).where(SmsChannel.policy_name == name)
+    )
+    if ref_result.scalar_one() > 0:
+        return False, True
+
+    await db.delete(policy)
+    await db.flush()
+    log.info("admin.policy.deleted", policy=name)
+    return True, False
 
 
 # ---------------------------------------------------------------------------
@@ -213,66 +217,126 @@ async def update_sms_config(data: SmsConfigUpdate, db: AsyncSession) -> dict:
 _SECRET_FIELDS = {"access_key_secret", "password", "secret_key"}
 
 
-def _mask_channel_dict(cfg: dict) -> dict:
-    return {k: ("***" if k in _SECRET_FIELDS and v else v) for k, v in cfg.items()}
-
-
-def _mask_channel(name: str, cfg: dict) -> SmsChannelOut:
+def _mask_channel(channel: SmsChannel) -> SmsChannelOut:
     """Return a SmsChannelOut with secret fields masked."""
-    masked = _mask_channel_dict(cfg)
-    return SmsChannelOut(name=name, **masked)
+    out = SmsChannelOut.model_validate(channel)
+    if out.access_key_secret:
+        out.access_key_secret = "***"
+    if out.password:
+        out.password = "***"
+    if out.secret_key:
+        out.secret_key = "***"
+    return out
 
 
-def list_channels() -> tuple[list[SmsChannelOut], int]:
+async def list_channels(db: AsyncSession) -> tuple[list[SmsChannelOut], int]:
     """Return all configured channels with secrets masked."""
-    items = [_mask_channel(n, c) for n, c in settings.SMS_CHANNELS.items()]
-    return items, len(items)
+    total_result = await db.execute(select(func.count()).select_from(SmsChannel))
+    total = total_result.scalar_one()
+    rows = await db.execute(select(SmsChannel).order_by(SmsChannel.name.asc()))
+    items = [_mask_channel(ch) for ch in rows.scalars().all()]
+    return items, total
 
 
-def get_channel(name: str) -> SmsChannelOut | None:
-    """Return a single channel by name, or None if not found."""
-    cfg = settings.SMS_CHANNELS.get(name)
-    if cfg is None:
+async def get_channel(db: AsyncSession, name: str) -> Optional[SmsChannelOut]:
+    """Return a single channel by name (masked), or None if not found."""
+    result = await db.execute(select(SmsChannel).where(SmsChannel.name == name))
+    channel = result.scalar_one_or_none()
+    if channel is None:
         return None
-    return _mask_channel(name, cfg)
+    return _mask_channel(channel)
 
 
-async def upsert_channel(name: str, data: SmsChannelCreate, db: AsyncSession) -> SmsChannelOut:
-    """Create or fully replace a named channel and persist."""
-    channels = dict(settings.SMS_CHANNELS)
-    channels[name] = data.model_dump(exclude_none=True)
-    settings.SMS_CHANNELS = channels
-    await _persist_config(db)
-    await db.commit()
-    log.info("admin.channel.upserted", channel=name)
-    return _mask_channel(name, channels[name])
+async def get_channel_raw(db: AsyncSession, name: str) -> Optional[SmsChannel]:
+    """Return the raw (unmasked) SmsChannel ORM object, or None."""
+    result = await db.execute(select(SmsChannel).where(SmsChannel.name == name))
+    return result.scalar_one_or_none()
 
 
-async def patch_channel(name: str, data: SmsChannelUpdate, db: AsyncSession) -> SmsChannelOut | None:
+async def get_default_channel(db: AsyncSession) -> Optional[SmsChannel]:
+    """Return the channel marked as default, or the first channel if none marked."""
+    result = await db.execute(
+        select(SmsChannel).where(SmsChannel.is_default == True).limit(1)
+    )
+    channel = result.scalar_one_or_none()
+    if channel is None:
+        # Fallback: first channel by name
+        result = await db.execute(select(SmsChannel).order_by(SmsChannel.name.asc()).limit(1))
+        channel = result.scalar_one_or_none()
+    return channel
+
+
+async def upsert_channel(
+    db: AsyncSession, name: str, data: SmsChannelCreate
+) -> SmsChannelOut:
+    """Create or fully replace a named channel."""
+    existing = await get_channel_raw(db, name)
+
+    if data.is_default:
+        # Clear is_default from any other channel
+        rows = await db.execute(
+            select(SmsChannel).where(SmsChannel.is_default == True, SmsChannel.name != name)
+        )
+        for ch in rows.scalars().all():
+            ch.is_default = False
+
+    if existing:
+        for field, value in data.model_dump(exclude_none=True).items():
+            setattr(existing, field, value)
+        # Explicitly clear fields not provided (full replace)
+        for field in data.model_fields:
+            if data.model_dump().get(field) is None:
+                setattr(existing, field, None)
+        # provider and is_default always set
+        existing.provider = data.provider
+        existing.is_default = data.is_default
+        await db.flush()
+        await db.refresh(existing)
+        log.info("admin.channel.replaced", channel=name)
+        return _mask_channel(existing)
+
+    channel = SmsChannel(name=name, **data.model_dump())
+    db.add(channel)
+    await db.flush()
+    await db.refresh(channel)
+    log.info("admin.channel.created", channel=name)
+    return _mask_channel(channel)
+
+
+async def patch_channel(
+    db: AsyncSession, name: str, data: SmsChannelUpdate
+) -> Optional[SmsChannelOut]:
     """Partially update a named channel. Returns None if not found."""
-    channels = dict(settings.SMS_CHANNELS)
-    if name not in channels:
+    channel = await get_channel_raw(db, name)
+    if channel is None:
         return None
-    existing = dict(channels[name])
-    for key, value in data.model_dump(exclude_unset=True).items():
-        existing[key] = value
-    channels[name] = existing
-    settings.SMS_CHANNELS = channels
-    await _persist_config(db)
-    await db.commit()
+
+    changed = data.model_dump(exclude_unset=True)
+
+    if changed.get("is_default"):
+        # Clear is_default from any other channel
+        rows = await db.execute(
+            select(SmsChannel).where(SmsChannel.is_default == True, SmsChannel.name != name)
+        )
+        for ch in rows.scalars().all():
+            ch.is_default = False
+
+    for field, value in changed.items():
+        setattr(channel, field, value)
+
+    await db.flush()
+    await db.refresh(channel)
     log.info("admin.channel.patched", channel=name)
-    return _mask_channel(name, existing)
+    return _mask_channel(channel)
 
 
-async def delete_channel(name: str, db: AsyncSession) -> bool:
+async def delete_channel(db: AsyncSession, name: str) -> bool:
     """Delete a named channel. Returns True when deleted, False when not found."""
-    channels = dict(settings.SMS_CHANNELS)
-    if name not in channels:
+    channel = await get_channel_raw(db, name)
+    if channel is None:
         return False
-    del channels[name]
-    settings.SMS_CHANNELS = channels
-    await _persist_config(db)
-    await db.commit()
+    await db.delete(channel)
+    await db.flush()
     log.info("admin.channel.deleted", channel=name)
     return True
 
@@ -282,31 +346,45 @@ async def delete_channel(name: str, db: AsyncSession) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def list_client_keys() -> tuple[list[SmsClientKeyOut], int]:
+async def list_client_keys(db: AsyncSession) -> tuple[list[SmsClientKeyOut], int]:
     """Return all configured client-key→channel mappings."""
-    items = [SmsClientKeyOut(api_key=k, channel=v) for k, v in settings.SMS_CLIENT_KEYS.items()]
-    return items, len(items)
+    total_result = await db.execute(select(func.count()).select_from(SmsClientKey))
+    total = total_result.scalar_one()
+    rows = await db.execute(select(SmsClientKey).order_by(SmsClientKey.api_key.asc()))
+    items = [SmsClientKeyOut(api_key=k.api_key, channel=k.channel) for k in rows.scalars().all()]
+    return items, total
 
 
-async def create_client_key(data: SmsClientKeyCreate, db: AsyncSession) -> SmsClientKeyOut:
-    """Add (or overwrite) a client-key mapping and persist."""
-    keys = dict(settings.SMS_CLIENT_KEYS)
-    keys[data.api_key] = data.channel
-    settings.SMS_CLIENT_KEYS = keys
-    await _persist_config(db)
-    await db.commit()
+async def get_client_key_channel(db: AsyncSession, api_key: str) -> Optional[str]:
+    """Return the channel name for an API key, or None if not found."""
+    result = await db.execute(
+        select(SmsClientKey.channel).where(SmsClientKey.api_key == api_key)
+    )
+    return result.scalar_one_or_none()
+
+
+async def create_client_key(db: AsyncSession, data: SmsClientKeyCreate) -> SmsClientKeyOut:
+    """Add or overwrite a client-key mapping."""
+    result = await db.execute(
+        select(SmsClientKey).where(SmsClientKey.api_key == data.api_key)
+    )
+    existing = result.scalar_one_or_none()
+    if existing:
+        existing.channel = data.channel
+    else:
+        db.add(SmsClientKey(api_key=data.api_key, channel=data.channel))
+    await db.flush()
     log.info("admin.client_key.created", api_key=data.api_key[:4] + "****", channel=data.channel)
     return SmsClientKeyOut(api_key=data.api_key, channel=data.channel)
 
 
-async def delete_client_key(api_key: str, db: AsyncSession) -> bool:
+async def delete_client_key(db: AsyncSession, api_key: str) -> bool:
     """Delete a client-key mapping. Returns True when deleted, False when not found."""
-    keys = dict(settings.SMS_CLIENT_KEYS)
-    if api_key not in keys:
+    result = await db.execute(select(SmsClientKey).where(SmsClientKey.api_key == api_key))
+    key = result.scalar_one_or_none()
+    if key is None:
         return False
-    del keys[api_key]
-    settings.SMS_CLIENT_KEYS = keys
-    await _persist_config(db)
-    await db.commit()
+    await db.delete(key)
+    await db.flush()
     log.info("admin.client_key.deleted", api_key=api_key[:4] + "****")
     return True

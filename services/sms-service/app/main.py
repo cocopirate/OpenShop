@@ -27,14 +27,54 @@ async def _periodic_cleanup() -> None:
     from app.services.sms_service import cleanup_old_records
     while True:
         await asyncio.sleep(86400)
-        if settings.SMS_RECORDS_RETENTION_DAYS > 0:
-            try:
-                async with AsyncSessionLocal() as session:
-                    count = await cleanup_old_records(session)
-                    await session.commit()
-                    log.info("sms.cleanup.done", deleted=count)
-            except Exception as exc:
-                log.error("sms.cleanup.error", error=str(exc))
+        try:
+            async with AsyncSessionLocal() as session:
+                count = await cleanup_old_records(session)
+                await session.commit()
+                log.info("sms.cleanup.done", deleted=count)
+        except Exception as exc:
+            log.error("sms.cleanup.error", error=str(exc))
+
+
+async def _ensure_defaults() -> None:
+    """Create the default SmsPolicy and SmsChannel if they do not exist."""
+    from app.models.sms_channel import SmsChannel
+    from app.models.sms_policy import SmsPolicy
+    from sqlalchemy import func, select
+
+    async with AsyncSessionLocal() as session:
+        # Ensure default policy
+        result = await session.execute(
+            select(SmsPolicy).where(SmsPolicy.name == "default")
+        )
+        if result.scalar_one_or_none() is None:
+            session.add(SmsPolicy(
+                name="default",
+                code_ttl=300,
+                rate_limit_phone_per_minute=1,
+                rate_limit_phone_per_day=10,
+                rate_limit_ip_per_minute=10,
+                rate_limit_ip_per_day=100,
+                records_retention_days=90,
+                failure_threshold=3,
+                recovery_timeout=60,
+            ))
+            log.info("sms_service.default_policy_created")
+
+        # Ensure at least one default channel
+        count_result = await session.execute(
+            select(func.count()).select_from(SmsChannel)
+        )
+        if count_result.scalar_one() == 0:
+            session.add(SmsChannel(
+                name="_default",
+                is_default=True,
+                provider="aliyun",
+                policy_name="default",
+            ))
+            log.info("sms_service.default_channel_created")
+
+        await session.commit()
 
 
 @asynccontextmanager
@@ -42,13 +82,9 @@ async def lifespan(application: FastAPI):
     global _cleanup_task
     configure_logging()
     await init_redis()
-    # Load any previously persisted config (provider credentials, etc.) from DB.
-    # This allows the service to be fully configured via API without env vars.
-    from app.services.admin_service import load_persisted_config
-    async with AsyncSessionLocal() as session:
-        await load_persisted_config(session)
+    await _ensure_defaults()
     _cleanup_task = asyncio.create_task(_periodic_cleanup())
-    log.info("sms_service.started", version="1.0.0", default_channel=settings.SMS_DEFAULT_CHANNEL)
+    log.info("sms_service.started", version="1.0.0")
     yield
     if _cleanup_task:
         _cleanup_task.cancel()
