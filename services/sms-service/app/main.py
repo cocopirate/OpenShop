@@ -48,7 +48,7 @@ async def lifespan(application: FastAPI):
     async with AsyncSessionLocal() as session:
         await load_persisted_config(session)
     _cleanup_task = asyncio.create_task(_periodic_cleanup())
-    log.info("sms_service.started", version="1.0.0", provider=settings.SMS_PROVIDER)
+    log.info("sms_service.started", version="1.0.0", default_channel=settings.SMS_DEFAULT_CHANNEL)
     yield
     if _cleanup_task:
         _cleanup_task.cancel()
