@@ -89,7 +89,7 @@ async def send_sms_endpoint(
             headers={"Retry-After": str(ip_rl.retry_after)},
         )
 
-    record = await send_sms(db, req.phone, req.template_id, req.params, req.request_id)
+    record = await send_sms(db, req.phone, req.template_id, req.params, req.request_id, req.channel)
     return JSONResponse(
         status_code=status.HTTP_201_CREATED,
         content=ok(SmsSendResponse(

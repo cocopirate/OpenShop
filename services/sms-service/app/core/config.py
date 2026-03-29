@@ -1,3 +1,4 @@
+from pydantic import Field
 from pydantic_settings import BaseSettings
 
 
@@ -71,6 +72,11 @@ class Settings(BaseSettings):
 
     # Records retention (days; 0 = no cleanup)
     SMS_RECORDS_RETENTION_DAYS: int = 90
+
+    # Named channel configurations for multi-credential routing.
+    # Maps channel name -> {provider, access_key_id, access_key_secret, sign_name, endpoint}.
+    # Set as a JSON object in env: SMS_CHANNELS='{"external": {"provider": "aliyun_phone_svc", ...}}'
+    SMS_CHANNELS: dict = Field(default_factory=dict)
 
     # OpenTelemetry / ARMS
     OTEL_ENDPOINT: str = ""

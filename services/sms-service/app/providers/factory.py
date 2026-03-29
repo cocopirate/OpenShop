@@ -1,5 +1,6 @@
 """SMS provider factory with circuit-breaker fallback."""
 import time
+from typing import Optional
 
 import structlog
 
@@ -16,7 +17,8 @@ _circuit: dict = {
 }
 
 
-def _make_provider(name: str) -> BaseSmsProvider:
+def _make_provider(name: str, credentials: Optional[dict] = None) -> BaseSmsProvider:
+    creds = credentials or {}
     if name == "tencent":
         from app.providers.tencent import TencentSmsProvider
         return TencentSmsProvider()
@@ -25,13 +27,37 @@ def _make_provider(name: str) -> BaseSmsProvider:
         return ChuangLanSmsProvider()
     if name == "aliyun_phone_svc":
         from app.providers.aliyun_phone_svc import AliyunPhoneSvcProvider
-        return AliyunPhoneSvcProvider()
+        return AliyunPhoneSvcProvider(
+            access_key_id=creds.get("access_key_id", ""),
+            access_key_secret=creds.get("access_key_secret", ""),
+            sign_name=creds.get("sign_name", ""),
+            endpoint=creds.get("endpoint", ""),
+        )
     from app.providers.aliyun import AliyunSmsProvider
-    return AliyunSmsProvider()
+    return AliyunSmsProvider(
+        key_id=creds.get("access_key_id", ""),
+        key_secret=creds.get("access_key_secret", ""),
+        sign_name=creds.get("sign_name", ""),
+        endpoint=creds.get("endpoint", ""),
+    )
 
 
-def get_provider() -> BaseSmsProvider:
-    """Return the active provider. Falls back to secondary if primary circuit is open."""
+def get_provider(channel: Optional[str] = None) -> BaseSmsProvider:
+    """Return the active provider, optionally routed by named channel.
+
+    If *channel* is given and found in ``settings.SMS_CHANNELS``, the
+    channel's own provider type and credentials are used (bypassing the
+    circuit-breaker fallback logic – channels are dedicated routes).
+    Otherwise the default primary/fallback provider selection applies.
+    """
+    if channel:
+        channel_cfg = settings.SMS_CHANNELS.get(channel)
+        if channel_cfg:
+            provider_name = channel_cfg.get("provider", settings.SMS_PROVIDER)
+            log.info("sms.channel.routing", channel=channel, provider=provider_name)
+            return _make_provider(provider_name, credentials=channel_cfg)
+        log.warning("sms.channel.not_found", channel=channel)
+
     primary = settings.SMS_PROVIDER
     fallback = settings.SMS_PROVIDER_FALLBACK
 

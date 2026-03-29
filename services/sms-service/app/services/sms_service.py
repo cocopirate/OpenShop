@@ -35,6 +35,7 @@ async def send_sms(
     template_id: str,
     params: dict,
     request_id: Optional[str] = None,
+    channel: Optional[str] = None,
 ) -> SmsRecord:
     """Send an SMS and persist a send record. Handles idempotency."""
     redis = get_redis()
@@ -54,14 +55,16 @@ async def send_sms(
             if existing:
                 return existing
 
-    provider = get_provider()
-    provider_name = settings.SMS_PROVIDER
+    provider = get_provider(channel=channel)
+    channel_cfg = settings.SMS_CHANNELS.get(channel) if channel else None
+    provider_name = channel_cfg.get("provider", settings.SMS_PROVIDER) if channel_cfg else settings.SMS_PROVIDER
 
     log.info(
         "sms.send.start",
         phone_masked=phone_masked,
         template_id=template_id,
         provider=provider_name,
+        channel=channel,
         request_id=request_id,
     )
 
