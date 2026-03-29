@@ -9,7 +9,6 @@ from fastapi.responses import JSONResponse
 from prometheus_client import make_asgi_app
 from sqlalchemy import text
 
-from app.api.v1.admin import admin_router
 from app.api.v1.router import router as v1_router
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal, engine
@@ -43,6 +42,11 @@ async def lifespan(application: FastAPI):
     global _cleanup_task
     configure_logging()
     await init_redis()
+    # Load any previously persisted config (provider credentials, etc.) from DB.
+    # This allows the service to be fully configured via API without env vars.
+    from app.services.admin_service import load_persisted_config
+    async with AsyncSessionLocal() as session:
+        await load_persisted_config(session)
     _cleanup_task = asyncio.create_task(_periodic_cleanup())
     log.info("sms_service.started", version="1.0.0", provider=settings.SMS_PROVIDER)
     yield
@@ -101,7 +105,6 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 
 app.include_router(v1_router, prefix="/api/sms", tags=["sms"])
-app.include_router(admin_router, prefix="/api/sms", tags=["admin"])
 
 metrics_app = make_asgi_app()
 app.mount("/metrics", metrics_app)

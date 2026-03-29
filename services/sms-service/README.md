@@ -1,121 +1,234 @@
 # sms-service（短信能力服务）
 
-对接第三方短信供应商（阿里云、腾讯云），提供统一短信发送能力。
+统一封装第三方短信供应商，提供验证码发送与校验、模板管理、多租户渠道路由和运行时配置管理能力。
 
 ## 目录结构
 
 ```
 sms-service/
 ├── app/
-│   ├── api/v1/       # 路由层
-│   ├── core/         # 配置、数据库、Redis 依赖注入
-│   ├── models/       # SQLAlchemy ORM 模型
-│   ├── schemas/      # Pydantic 请求/响应模型
-│   ├── services/     # 业务逻辑
-│   └── providers/    # 通道适配器（阿里云 / 腾讯云）
-├── alembic/          # 数据库迁移
-├── tests/            # 单元 / 集成测试
-├── deploy/           # K8s YAML（Deployment + Service）
-├── pyproject.toml    # uv 依赖管理
-├── requirements.txt  # pip 锁定版本
-└── .env.example      # 本地环境变量模板
+│   ├── api/v1/
+│   │   └── router.py         # 全部路由（发送/验证/模板/配置）
+│   ├── core/
+│   │   ├── config.py         # pydantic-settings 配置
+│   │   ├── database.py       # SQLAlchemy 异步引擎 + 会话
+│   │   ├── redis.py          # aioredis 连接池
+│   │   ├── rate_limiter.py   # Redis 滑动窗口限频
+│   │   ├── metrics.py        # Prometheus 指标
+│   │   ├── tracing.py        # OpenTelemetry 链路追踪
+│   │   ├── logging.py        # structlog 结构化日志
+│   │   ├── masking.py        # 手机号脱敏
+│   │   └── response.py       # 统一响应格式
+│   ├── models/
+│   │   ├── sms_record.py     # SmsRecord ORM 模型
+│   │   ├── sms_template.py   # SmsTemplate ORM 模型
+│   │   └── sms_config_store.py  # SmsConfigStore 持久化配置表（id=1 单行）
+│   ├── schemas/
+│   │   └── sms.py            # Pydantic 请求/响应 schema
+│   ├── services/
+│   │   ├── sms_service.py    # 核心业务逻辑（发送/验证/幂等）
+│   │   └── admin_service.py  # 模板 CRUD + 配置管理
+│   ├── providers/
+│   │   ├── __init__.py       # BaseSmsProvider / SendResult / StatusResult
+│   │   ├── factory.py        # 供应商工厂 + 熔断器
+│   │   ├── aliyun.py         # 阿里云短信（REST 签名）
+│   │   ├── aliyun_phone_svc.py  # 阿里云号码认证服务（SDK）
+│   │   ├── tencent.py        # 腾讯云短信
+│   │   └── chuanglan.py      # 创蓝云短信（253.com）
+│   └── main.py               # FastAPI 应用入口 + 生命周期
+├── alembic/                  # 数据库迁移脚本
+├── tests/                    # pytest 测试
+├── deploy/                   # K8s Deployment + Service YAML
+├── pyproject.toml
+├── requirements.txt
+└── .env.example
 ```
 
-## 主要接口
+## HTTP 接口
 
-| 接口 | 方法 | 说明 |
+### 短信发送
+
+| 方法 | 路径 | 说明 |
 |------|------|------|
-| `POST /api/sms/send` | POST | 发送短信 |
-| `POST /api/sms/send-code` | POST | 发送验证码短信 |
-| `GET  /api/sms/records` | GET | 查询发送记录（手机号/时间/状态过滤 + 分页） |
-| `POST /api/sms/verify` | POST | 验证短信验证码 |
-| `GET  /health` | GET | 服务健康检查（含 DB / Redis 连通性） |
-| `GET  /health/ready` | GET | K8s Readiness Probe |
+| `POST` | `/api/sms/send` | 发送短信（支持幂等 `request_id` 和渠道路由 `channel`） |
+| `POST` | `/api/sms/send-code` | 发送验证码（需 `X-API-Key` 请求头，若配置了 `SMS_CLIENT_KEYS`） |
+| `POST` | `/api/sms/verify` | 校验验证码 |
 
-## 管理后台接口（Admin API）
+### 发送记录
 
-> 以下接口前缀为 `/api/sms/admin`，仅限管理员调用。鉴权由 API Gateway 的 RBAC 层负责，
-> 请求到达 sms-service 前须通过角色验证。
-
-### 发送记录管理
-
-| 接口 | 方法 | 说明 |
+| 方法 | 路径 | 说明 |
 |------|------|------|
-| `GET  /api/sms/admin/records` | GET | 查询短信发送记录（支持手机号/时间/状态过滤 + 分页） |
-| `DELETE /api/sms/admin/records/{id}` | DELETE | 删除指定发送记录 |
+| `GET` | `/api/sms/records` | 查询发送记录（手机号/时间/状态过滤 + 分页） |
+| `DELETE` | `/api/sms/records/{id}` | 删除指定发送记录 |
 
-### 短信模板管理
+### 短信模板
 
-| 接口 | 方法 | 说明 |
+| 方法 | 路径 | 说明 |
 |------|------|------|
-| `GET  /api/sms/admin/templates` | GET | 查询模板列表（支持供应商/状态过滤 + 分页） |
-| `POST /api/sms/admin/templates` | POST | 创建短信模板 |
-| `GET  /api/sms/admin/templates/{id}` | GET | 获取模板详情 |
-| `PUT  /api/sms/admin/templates/{id}` | PUT | 更新短信模板 |
-| `DELETE /api/sms/admin/templates/{id}` | DELETE | 删除短信模板 |
-
-### 短信配置管理
-
-| 接口 | 方法 | 说明 |
-|------|------|------|
-| `GET  /api/sms/admin/config` | GET | 查询当前短信服务配置（供应商、限频、熔断器参数等） |
-| `PUT  /api/sms/admin/config` | PUT | 动态更新短信服务配置（运行时生效，重启后恢复至环境变量値） |
-
-## 数据模型
-
-- **SmsRecord** – 发送记录表，记录每次发送的状态、供应商响应 ID 等
-- **SmsTemplate** – 模板表，维护供应商模板 ID 与本地名称映射
-
-## 基础设施接入
+| `GET` | `/api/sms/templates` | 模板列表（供应商/状态过滤 + 分页） |
+| `POST` | `/api/sms/templates` | 创建模板 |
+| `GET` | `/api/sms/templates/{id}` | 模板详情 |
+| `PUT` | `/api/sms/templates/{id}` | 更新模板 |
+| `DELETE` | `/api/sms/templates/{id}` | 删除模板 |
 
 ### 配置管理
 
-所有配置通过环境变量或 `.env` 文件注入，使用 `pydantic-settings` 统一管理：
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `GET` | `/api/sms/config` | 查询运行时配置（供应商凭据已脱敏） |
+| `PUT` | `/api/sms/config` | 更新配置（包括供应商凭据）；变更立即生效并**持久化到 DB**，重启后自动恢复 |
 
-```bash
-cp .env.example .env
-# 编辑 .env，填入真实值
+### 健康检测
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `GET` | `/health` | 服务健康（含 DB / Redis 连通性） |
+| `GET` | `/health/ready` | K8s Readiness Probe |
+| `GET` | `/metrics` | Prometheus 指标 |
+
+## 数据模型
+
+**SmsRecord** – 每次发送的结果记录，含供应商返回 ID、状态、错误信息；手机号脱敏存储。到期由后台任务自动清理（`SMS_RECORDS_RETENTION_DAYS`）。
+
+**SmsTemplate** – 供应商模板 ID 与本地名称的映射，支持多供应商、启用/禁用状态。
+
+**SmsConfigStore** – 单行 JSON 配置表（id=1），持久化所有通过 `PUT /api/sms/config` 修改的运行时配置（含供应商凭据）。服务启动时加载此表并覆盖环境变量默认值。
+
+## 供应商
+
+通过 `SMS_PROVIDER` 指定默认供应商：
+
+| 值 | 供应商 | 凭据环境变量前缀 |
+|----|--------|----------------|
+| `chuanglan` | 创蓝云（253.com，默认） | `CHUANGLAN_` |
+| `aliyun` | 阿里云短信服务（Dysms REST） | `ALIYUN_` |
+| `aliyun_phone_svc` | 阿里云号码认证服务（PNS SDK） | `ALIYUN_PHONE_SVC_` |
+| `tencent` | 腾讯云短信 | `TENCENT_` |
+
+### 熔断器（Circuit Breaker）
+
+主供应商连续失败 `SMS_PROVIDER_FAILURE_THRESHOLD` 次后熔断，自动切换到 `SMS_PROVIDER_FALLBACK`；经过 `SMS_PROVIDER_RECOVERY_TIMEOUT` 秒后进入半开状态尝试恢复。进程级内存状态，重启后重置。
+
+### 多租户渠道路由
+
+`SMS_CHANNELS` 为不同业务方提供独立的供应商和凭据；`SMS_CLIENT_KEYS` 将外部 API Key 映射到渠道名称。配置了 `SMS_CLIENT_KEYS` 后，`POST /api/sms/send-code` 必须携带合法的 `X-API-Key`。
+
+```
+外部 A 业务  →  X-API-Key: key-a  →  business_a 渠道  →  aliyun_phone_svc（独立密钥）
+外部 B 业务  →  X-API-Key: key-b  →  business_b 渠道  →  aliyun（独立密钥）
+内部服务     →  不传 X-API-Key   →  全局 SMS_PROVIDER（默认渠道）
 ```
 
-各环境模板：
-- `.env.example` – 本地开发（docker-compose 默认值）
-- `.env.staging.example` – 预发布环境
-- `.env.prod.example` – 生产环境
-
-### 数据库迁移（Alembic）
-
 ```bash
-# 应用初始迁移（创建 sms_records、sms_templates 表）
-alembic upgrade head
-
-# 生成新迁移（修改模型后）
-alembic revision --autogenerate -m "描述"
+# .env 配置示例
+SMS_CHANNELS='{"business_a": {"provider": "aliyun_phone_svc", "access_key_id": "k1", "access_key_secret": "s1", "sign_name": "A业务", "endpoint": "dypnsapi.aliyuncs.com"}}'
+SMS_CLIENT_KEYS='{"key-a-001": "business_a"}'
 ```
 
-### 本地开发
+## 核心机制
+
+### 验证码流程
+
+1. `POST /api/sms/send-code` 生成 6 位 OTP，写入 Redis（TTL = `SMS_CODE_TTL`）
+2. 调用供应商发送短信
+3. `POST /api/sms/verify` 从 Redis 读取并比对，验证成功后立即删除 key
+
+### 幂等发送
+
+`POST /api/sms/send` 支持 `request_id` 字段（最大 64 字符）。同一 `request_id` 的重复请求直接返回首次发送结果，Redis 缓存 24 小时。
+
+### 限频（Redis 滑动窗口）
+
+同时检查两个维度：
+
+| 维度 | 每分钟 | 每日 |
+|------|--------|------|
+| 手机号 | `SMS_RATE_LIMIT_PHONE_PER_MINUTE` | `SMS_RATE_LIMIT_PHONE_PER_DAY` |
+| 来源 IP | `SMS_RATE_LIMIT_IP_PER_MINUTE` | `SMS_RATE_LIMIT_IP_PER_DAY` |
+
+超限时返回 `HTTP 429`，响应头含 `Retry-After`。
+
+## 配置参考
+
+SMS 供应商相关配置（凭据、限频、熔断器、渠道路由等）**不通过环境变量管理**，全部使用 `PUT /api/sms/config` 写入数据库并持久化。服务重启时自动从 `sms_config_store` 表恢复，无需任何 SMS 相关的 `.env` 条目。
+
+`.env` 只需配置基础设施连接信息：
 
 ```bash
-# 启动依赖（PostgreSQL + Redis）
+# 服务基础
+SERVICE_PORT=8010
+DATABASE_URL=postgresql+asyncpg://...
+REDIS_URL=redis://...
+RABBITMQ_URL=amqp://...
+
+# OpenTelemetry（留空禁用）
+OTEL_ENDPOINT=
+OTEL_TOKEN=
+```
+
+完整 env 示例见 `.env.example`。
+
+### 首次部署：通过 API 写入供应商配置
+
+```bash
+# 配置创蓝云为默认供应商
+curl -X PUT http://localhost:8010/api/sms/config \
+  -H "Content-Type: application/json" \
+  -d '{"sms_provider": "chuanglan", "chuanglan": {"account": "xxx", "password": "xxx"}}'
+
+# 配置阿里云号码认证服务
+curl -X PUT http://localhost:8010/api/sms/config \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sms_provider": "aliyun_phone_svc",
+    "aliyun_phone_svc": {
+      "access_key_id": "your_key_id",
+      "access_key_secret": "your_key_secret",
+      "sign_name": "你的签名",
+      "endpoint": "dypnsapi.aliyuncs.com"
+    }
+  }'
+
+# 配置限频和熔断器参数
+curl -X PUT http://localhost:8010/api/sms/config \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sms_rate_limit_phone_per_minute": 1,
+    "sms_rate_limit_phone_per_day": 10,
+    "sms_provider_failure_threshold": 3,
+    "sms_provider_recovery_timeout": 60
+  }'
+```
+
+## 本地开发
+
+```bash
+# 1. 启动依赖（PostgreSQL + Redis）
 docker-compose -f ../../infra/docker-compose.yml up -d postgres redis
 
-# 1. 安装 uv（如未安装）
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# 2. 创建虚拟环境 + 安装依赖
+# 2. 创建虚拟环境并安装依赖
 uv venv --python 3.11
 uv pip install -r requirements.txt
-
-# 3. 激活虚拟环境
 source .venv/bin/activate
 
-# 4. 配置环境变量
+# 3. 配置环境变量
 cp .env.example .env
 
-# 5. 应用数据库迁移
+# 4. 应用数据库迁移
 alembic upgrade head
 
-# 6. 启动服务
+# 5. 启动服务
 uvicorn app.main:app --reload --port 8010
+```
+
+### 数据库迁移
+
+```bash
+# 应用迁移
+alembic upgrade head
+
+# 生成新迁移（修改 ORM 模型后）
+alembic revision --autogenerate -m "描述"
 ```
 
 ### 运行测试
@@ -124,28 +237,28 @@ uvicorn app.main:app --reload --port 8010
 pytest tests/ -v
 ```
 
-### K8s 部署
+## K8s 部署
 
 ```bash
 kubectl apply -f deploy/deployment.yaml
 kubectl apply -f deploy/service.yaml
 ```
 
-Readiness Probe 指向 `GET /health/ready`，Liveness Probe 指向 `GET /health`。
+- Readiness Probe：`GET /health/ready`
+- Liveness Probe：`GET /health`
+- 端口：**8010**
 
-## SMS 供应商
+## 可观测性
 
-通过 `SMS_PROVIDER` 环境变量切换：
-- `aliyun`（默认）– 阿里云短信服务
-- `tencent` – 腾讯云短信
-- `chuanglan` – 创蓝云短信（253.com）
-
-支持通过 `SMS_PROVIDER_FALLBACK` 配置备用供应商，主供应商故障时自动切换（熔断器模式）。
+| 能力 | 实现 |
+|------|------|
+| 结构化日志 | structlog（JSON 格式） |
+| 指标 | Prometheus，`GET /metrics` |
+| 链路追踪 | OpenTelemetry（OTLP），`OTEL_ENDPOINT` 为空时禁用 |
 
 ## 依赖服务
 
-- notification-service（上游调用方）
-
-## 端口
-
-- 服务端口: **8010**
+- **PostgreSQL** – 发送记录和模板持久化
+- **Redis** – 验证码缓存、幂等 key、限频滑动窗口
+- **RabbitMQ**（可选）– 消息消费（`RABBITMQ_URL` 配置）
+- **notification-service** – 上游调用方

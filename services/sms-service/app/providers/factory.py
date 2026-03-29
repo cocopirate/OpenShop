@@ -28,17 +28,17 @@ def _make_provider(name: str, credentials: Optional[dict] = None) -> BaseSmsProv
     if name == "aliyun_phone_svc":
         from app.providers.aliyun_phone_svc import AliyunPhoneSvcProvider
         return AliyunPhoneSvcProvider(
-            access_key_id=creds.get("access_key_id", ""),
-            access_key_secret=creds.get("access_key_secret", ""),
-            sign_name=creds.get("sign_name", ""),
-            endpoint=creds.get("endpoint", ""),
+            access_key_id=creds.get("access_key_id") or settings.ALIYUN_PHONE_SVC_ACCESS_KEY_ID,
+            access_key_secret=creds.get("access_key_secret") or settings.ALIYUN_PHONE_SVC_ACCESS_KEY_SECRET,
+            sign_name=creds.get("sign_name") or settings.ALIYUN_PHONE_SVC_SIGN_NAME,
+            endpoint=creds.get("endpoint") or settings.ALIYUN_PHONE_SVC_ENDPOINT,
         )
     from app.providers.aliyun import AliyunSmsProvider
     return AliyunSmsProvider(
-        key_id=creds.get("access_key_id", ""),
-        key_secret=creds.get("access_key_secret", ""),
-        sign_name=creds.get("sign_name", ""),
-        endpoint=creds.get("endpoint", ""),
+        key_id=creds.get("access_key_id") or settings.ALIYUN_ACCESS_KEY_ID,
+        key_secret=creds.get("access_key_secret") or settings.ALIYUN_ACCESS_KEY_SECRET,
+        sign_name=creds.get("sign_name") or settings.ALIYUN_SMS_SIGN_NAME,
+        endpoint=creds.get("endpoint") or settings.ALIYUN_SMS_ENDPOINT,
     )
 
 

@@ -1,9 +1,14 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
 from app.models.sms_record import SmsStatus
+
+
+class SendCodeRequest(BaseModel):
+    phone: str = Field(..., description="手机号")
+    template_id: str = Field(..., description="验证码模板 ID")
 
 
 class SmsSendRequest(BaseModel):
@@ -96,8 +101,42 @@ class SmsTemplateListResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Admin – Provider credential schemas (for PUT /api/sms/config)
+# ---------------------------------------------------------------------------
+
+
+class ChuanglanCredentialsUpdate(BaseModel):
+    account: Optional[str] = Field(None, description="账号")
+    password: Optional[str] = Field(None, description="密码")
+    api_url: Optional[str] = Field(None, description="API 地址")
+
+
+class AliyunCredentialsUpdate(BaseModel):
+    access_key_id: Optional[str] = Field(None, description="Access Key ID")
+    access_key_secret: Optional[str] = Field(None, description="Access Key Secret")
+    sign_name: Optional[str] = Field(None, description="短信签名")
+    endpoint: Optional[str] = Field(None, description="API Endpoint")
+
+
+class TencentCredentialsUpdate(BaseModel):
+    secret_id: Optional[str] = Field(None, description="SecretId")
+    secret_key: Optional[str] = Field(None, description="SecretKey")
+    app_id: Optional[str] = Field(None, description="SdkAppId")
+    sign_name: Optional[str] = Field(None, description="短信签名")
+
+
+# ---------------------------------------------------------------------------
 # Admin – SMS Configuration schemas
 # ---------------------------------------------------------------------------
+
+
+class SmsChannelConfig(BaseModel):
+    """Single named channel configuration (provider + credentials)."""
+    provider: str = Field(..., description="供应商标识（aliyun / aliyun_phone_svc / tencent / chuanglan）")
+    access_key_id: Optional[str] = Field(None, description="Access Key ID")
+    access_key_secret: Optional[str] = Field(None, description="Access Key Secret（写入时有效，读取时脱敏）")
+    sign_name: Optional[str] = Field(None, description="短信签名")
+    endpoint: Optional[str] = Field(None, description="API Endpoint（留空使用默认值）")
 
 
 class SmsConfigOut(BaseModel):
@@ -111,6 +150,13 @@ class SmsConfigOut(BaseModel):
     sms_rate_limit_ip_per_minute: int = Field(..., description="单 IP 每分钟限频")
     sms_rate_limit_ip_per_day: int = Field(..., description="单 IP 每日限频")
     sms_records_retention_days: int = Field(..., description="发送记录保留天数（0 = 永久保留）")
+    sms_channels: Dict[str, dict] = Field(default_factory=dict, description="渠道配置（access_key_secret 已脱敏）")
+    sms_client_keys: Dict[str, str] = Field(default_factory=dict, description="客户端 API Key → 渠道名称映射")
+    # Provider credentials (secrets masked to "***")
+    chuanglan: dict = Field(default_factory=dict, description="创蓝云凭据（password 已脱敏）")
+    aliyun: dict = Field(default_factory=dict, description="阿里云短信凭据（access_key_secret 已脱敏）")
+    aliyun_phone_svc: dict = Field(default_factory=dict, description="阿里云号码认证凭据（access_key_secret 已脱敏）")
+    tencent: dict = Field(default_factory=dict, description="腾讯云凭据（secret_key 已脱敏）")
 
 
 class SmsConfigUpdate(BaseModel):
@@ -124,3 +170,14 @@ class SmsConfigUpdate(BaseModel):
     sms_rate_limit_ip_per_minute: Optional[int] = Field(None, ge=1, description="单 IP 每分钟限频（≥1）")
     sms_rate_limit_ip_per_day: Optional[int] = Field(None, ge=1, description="单 IP 每日限频（≥1）")
     sms_records_retention_days: Optional[int] = Field(None, ge=0, description="发送记录保留天数（≥0）")
+    sms_channels: Optional[Dict[str, Optional[SmsChannelConfig]]] = Field(
+        None, description="渠道配置增量更新，值为 null 则删除该渠道"
+    )
+    sms_client_keys: Optional[Dict[str, Optional[str]]] = Field(
+        None, description="客户端 API Key 增量更新，值为 null 则删除该 Key"
+    )
+    # Provider credentials – partial update: only supplied fields are changed
+    chuanglan: Optional[ChuanglanCredentialsUpdate] = Field(None, description="创蓝云凭据（部分更新）")
+    aliyun: Optional[AliyunCredentialsUpdate] = Field(None, description="阿里云短信凭据（部分更新）")
+    aliyun_phone_svc: Optional[AliyunCredentialsUpdate] = Field(None, description="阿里云号码认证凭据（部分更新）")
+    tencent: Optional[TencentCredentialsUpdate] = Field(None, description="腾讯云凭据（部分更新）")

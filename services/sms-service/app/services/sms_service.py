@@ -130,6 +130,7 @@ async def send_verification_code(
     db: AsyncSession,
     phone: str,
     template_id: str,
+    channel: Optional[str] = None,
 ) -> SmsRecord:
     """Generate and send a verification code.
 
@@ -142,7 +143,7 @@ async def send_verification_code(
     key = _make_verify_key(phone)
     await redis.set(key, code, ex=settings.SMS_CODE_TTL)
     min_str = str(max(1, settings.SMS_CODE_TTL // 60))
-    return await send_sms(db, phone, template_id, {"code": code, "min": min_str})
+    return await send_sms(db, phone, template_id, {"code": code, "min": min_str}, channel=channel)
 
 
 async def verify_code(phone: str, code: str) -> bool:

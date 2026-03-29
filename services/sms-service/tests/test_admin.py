@@ -205,35 +205,73 @@ def test_get_sms_config_returns_expected_keys():
         "sms_rate_limit_ip_per_day",
         "sms_records_retention_days",
     }
-    assert expected_keys == set(config.keys())
+    assert expected_keys.issubset(set(config.keys()))
+    # Provider credential blocks are also present
+    assert "chuanglan" in config
+    assert "aliyun" in config
+    assert "aliyun_phone_svc" in config
+    assert "tencent" in config
 
 
-def test_update_sms_config_partial():
+def _make_config_mock_db():
+    """AsyncMock db that satisfies _persist_config (no existing store row)."""
+    mock_db = AsyncMock()
+    store_result = MagicMock()
+    store_result.scalar_one_or_none.return_value = None
+    mock_db.execute = AsyncMock(return_value=store_result)
+    return mock_db
+
+
+@pytest.mark.asyncio
+async def test_update_sms_config_partial():
     from app.core.config import settings
     from app.schemas.sms import SmsConfigUpdate
     from app.services.admin_service import update_sms_config
 
     original_ttl = settings.SMS_CODE_TTL
+    mock_db = _make_config_mock_db()
     try:
-        result = update_sms_config(SmsConfigUpdate(sms_code_ttl=600))
+        result = await update_sms_config(SmsConfigUpdate(sms_code_ttl=600), mock_db)
         assert result["sms_code_ttl"] == 600
         assert settings.SMS_CODE_TTL == 600
     finally:
         settings.SMS_CODE_TTL = original_ttl
 
 
-def test_update_sms_config_provider():
+@pytest.mark.asyncio
+async def test_update_sms_config_provider():
     from app.core.config import settings
     from app.schemas.sms import SmsConfigUpdate
     from app.services.admin_service import update_sms_config
 
     original_provider = settings.SMS_PROVIDER
+    mock_db = _make_config_mock_db()
     try:
-        result = update_sms_config(SmsConfigUpdate(sms_provider="tencent"))
+        result = await update_sms_config(SmsConfigUpdate(sms_provider="tencent"), mock_db)
         assert result["sms_provider"] == "tencent"
         assert settings.SMS_PROVIDER == "tencent"
     finally:
         settings.SMS_PROVIDER = original_provider
+
+
+@pytest.mark.asyncio
+async def test_update_sms_config_provider_credentials():
+    """PUT /api/sms/config updates aliyun_phone_svc credentials in settings."""
+    from app.core.config import settings
+    from app.schemas.sms import AliyunCredentialsUpdate, SmsConfigUpdate
+    from app.services.admin_service import update_sms_config
+
+    original_key = settings.ALIYUN_PHONE_SVC_ACCESS_KEY_ID
+    mock_db = _make_config_mock_db()
+    try:
+        result = await update_sms_config(
+            SmsConfigUpdate(aliyun_phone_svc=AliyunCredentialsUpdate(access_key_id="new-key")),
+            mock_db,
+        )
+        assert settings.ALIYUN_PHONE_SVC_ACCESS_KEY_ID == "new-key"
+        assert result["aliyun_phone_svc"]["access_key_id"] == "new-key"
+    finally:
+        settings.ALIYUN_PHONE_SVC_ACCESS_KEY_ID = original_key
 
 
 # ---------------------------------------------------------------------------
@@ -242,12 +280,12 @@ def test_update_sms_config_provider():
 
 
 def _make_app():
-    """Create a minimal FastAPI app with only the admin router for testing."""
+    """Create a minimal FastAPI app with the standard SMS router for testing."""
     from fastapi import FastAPI
-    from app.api.v1.admin import admin_router
+    from app.api.v1.router import router
 
     app = FastAPI()
-    app.include_router(admin_router, prefix="/api/sms")
+    app.include_router(router, prefix="/api/sms")
     return app
 
 
@@ -257,9 +295,9 @@ async def test_admin_get_config_endpoint():
 
     app = _make_app()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get("/api/sms/admin/config")
+        resp = await client.get("/api/sms/config")
     assert resp.status_code == 200
-    data = resp.json()
+    data = resp.json()["data"]
     assert "sms_provider" in data
     assert "sms_code_ttl" in data
 
@@ -267,15 +305,25 @@ async def test_admin_get_config_endpoint():
 @pytest.mark.asyncio
 async def test_admin_update_config_endpoint():
     from app.core.config import settings
+    from app.core.database import get_db
     from httpx import ASGITransport, AsyncClient
 
     original_ttl = settings.SMS_CODE_TTL
     app = _make_app()
+
+    async def _override_db():
+        mock_db = AsyncMock()
+        store_result = MagicMock()
+        store_result.scalar_one_or_none.return_value = None
+        mock_db.execute = AsyncMock(return_value=store_result)
+        yield mock_db
+
+    app.dependency_overrides[get_db] = _override_db
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            resp = await client.put("/api/sms/admin/config", json={"sms_code_ttl": 120})
+            resp = await client.put("/api/sms/config", json={"sms_code_ttl": 120})
         assert resp.status_code == 200
-        assert resp.json()["sms_code_ttl"] == 120
+        assert resp.json()["data"]["sms_code_ttl"] == 120
     finally:
         settings.SMS_CODE_TTL = original_ttl
 
@@ -297,7 +345,7 @@ async def test_admin_delete_record_not_found():
     app.dependency_overrides[get_db] = _override_db
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.delete("/api/sms/admin/records/9999")
+        resp = await client.delete("/api/sms/records/9999")
     assert resp.status_code == 404
 
 
@@ -318,7 +366,7 @@ async def test_admin_delete_template_not_found():
     app.dependency_overrides[get_db] = _override_db
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.delete("/api/sms/admin/templates/9999")
+        resp = await client.delete("/api/sms/templates/9999")
     assert resp.status_code == 404
 
 
@@ -339,5 +387,5 @@ async def test_admin_get_template_not_found():
     app.dependency_overrides[get_db] = _override_db
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get("/api/sms/admin/templates/9999")
+        resp = await client.get("/api/sms/templates/9999")
     assert resp.status_code == 404
