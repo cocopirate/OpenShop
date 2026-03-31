@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     SMS_SERVICE_URL: str = "http://sms-service:8010"
     AUTH_SERVICE_URL: str = "http://auth-service:8000"
 
+    # BFF services
+    APP_BFF_URL: str = "http://app-bff:8090"
+    ADMIN_BFF_URL: str = "http://admin-bff:8091"
+
     # Rate limits
     RATE_LIMIT_PER_MINUTE: int = 60
     RATE_LIMIT_PER_HOUR: int = 1000

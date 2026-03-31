@@ -7,3 +7,4 @@ redis[asyncio]==5.0.4
 aio-pika==9.4.1
 alembic==1.13.1
 python-jose[cryptography]==3.4.0
+structlog==24.1.0

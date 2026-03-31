@@ -13,14 +13,10 @@ FROM python:3.11-slim
 WORKDIR /app
 COPY --from=builder /app/.venv /app/.venv
 COPY app/ ./app/
-COPY alembic/ ./alembic/
-COPY alembic.ini .
-COPY entrypoint.sh .
 
 ENV PATH=/app/.venv/bin:$PATH
 ENV PYTHONPATH=/app
 
-EXPOSE 8003
+EXPOSE 8091
 
-RUN chmod +x entrypoint.sh
-ENTRYPOINT ["./entrypoint.sh"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8091"]
