@@ -1,7 +1,6 @@
 """Business logic for SPU management."""
 from __future__ import annotations
 
-import json
 from typing import Optional
 
 from sqlalchemy import func, select
