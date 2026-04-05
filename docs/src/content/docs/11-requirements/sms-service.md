@@ -101,7 +101,7 @@ title: 短信服务 PRD
 
 ## 6. 相关文档
 
-- [短信服务概览](overview.md)
+- [短信服务概览](../../05-services/sms-service/overview.md)
 - [短信服务 API 参考](../../03-api-reference/sms.md)
 - [短信通知链路](../../04-architecture/sms-notification-chain.md)
 - [幂等性设计](../../09-best-practices/idempotency.md)

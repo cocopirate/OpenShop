@@ -97,7 +97,7 @@ title: 第三方服务集成 PRD
 
 ## 6. 相关文档
 
-- [第三方服务集成概览](overview.md)
+- [第三方服务集成概览](../../05-services/third-party-service/overview.md)
 - [事件驱动架构](../../04-architecture/event-driven.md)
-- [短信服务 PRD](../sms-service/prd.md)
+- [短信服务 PRD](./sms-service.md)
 - [系统架构总览](../../04-architecture/system-overview.md)

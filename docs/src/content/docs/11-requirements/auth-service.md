@@ -92,7 +92,7 @@ title: 认证服务 PRD
 
 ## 6. 相关文档
 
-- [认证服务概览](overview.md)
-- [认证服务 API 参考](api.md)
+- [认证服务概览](../../05-services/auth-service/overview.md)
+- [认证服务 API 参考](../../05-services/auth-service/api.md)
 - [认证接口（API 参考）](../../03-api-reference/auth.md)
 - [安全设计](../../04-architecture/security.md)

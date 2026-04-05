@@ -83,11 +83,11 @@ title: 管理员服务 PRD
 主要约束：
 - 权限数据不做跨服务缓存，auth-service 每次登录时实时拉取
 - 端口 8012（参考架构文档）
-- RBAC 设计详见 [RBAC 设计文档](rbac.md)，数据模型详见 [数据模型文档](schema.md)
+- RBAC 设计详见 [RBAC 设计文档](../../05-services/admin-service/rbac.md)，数据模型详见 [数据模型文档](../../05-services/admin-service/schema.md)
 
 ## 6. 相关文档
 
-- [管理员服务概览](overview.md)
-- [管理员服务 API 参考](api.md)
-- [RBAC 设计](rbac.md)
-- [数据模型](schema.md)
+- [管理员服务概览](../../05-services/admin-service/overview.md)
+- [管理员服务 API 参考](../../05-services/admin-service/api.md)
+- [RBAC 设计](../../05-services/admin-service/rbac.md)
+- [数据模型](../../05-services/admin-service/schema.md)

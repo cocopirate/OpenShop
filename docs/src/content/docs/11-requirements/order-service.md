@@ -103,7 +103,7 @@ refunding → refunded  （退款成功）
 
 ## 6. 相关文档
 
-- [订单服务概览](overview.md)
+- [订单服务概览](../../05-services/order-service/overview.md)
 - [下单流程](../../02-user-guide/order-process.md)
 - [订单管理 API 参考](../../03-api-reference/orders.md)
 - [Saga 编排](../../04-architecture/saga.md)

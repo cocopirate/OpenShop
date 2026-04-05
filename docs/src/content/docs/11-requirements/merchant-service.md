@@ -101,6 +101,6 @@ suspended → approved （管理员恢复）
 
 ## 6. 相关文档
 
-- [商家服务概览](overview.md)
+- [商家服务概览](../../05-services/merchant-service/overview.md)
 - [商家入驻流程](../../02-user-guide/merchant-onboarding.md)
 - [商家管理 API 参考](../../03-api-reference/merchants.md)

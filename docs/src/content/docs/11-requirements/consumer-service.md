@@ -57,7 +57,7 @@ title: 消费者服务 PRD
 
 #### 事件发布
 
-详见 [事件文档](events.md)，消费者服务发布以下事件：
+详见 [事件文档](../../05-services/consumer-service/events.md)，消费者服务发布以下事件：
 - `consumer.registered`：消费者注册成功
 - `consumer.profile_updated`：消费者个人信息变更
 - `consumer.address_updated`：收货地址变更
@@ -87,7 +87,7 @@ title: 消费者服务 PRD
 
 ## 6. 相关文档
 
-- [消费者服务概览](overview.md)
-- [消费者服务 API 参考](api.md)
-- [数据模型](schema.md)
-- [事件定义](events.md)
+- [消费者服务概览](../../05-services/consumer-service/overview.md)
+- [消费者服务 API 参考](../../05-services/consumer-service/api.md)
+- [数据模型](../../05-services/consumer-service/schema.md)
+- [事件定义](../../05-services/consumer-service/events.md)
