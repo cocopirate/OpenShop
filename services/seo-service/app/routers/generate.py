@@ -86,6 +86,7 @@ async def trigger_generate(
     await db.commit()
 
     # Enqueue ARQ task
+    redis = None
     try:
         redis = await get_redis_pool()
         await redis.enqueue_job(
@@ -96,10 +97,12 @@ async def trigger_generate(
             service_slug=payload.service_slug,
             force=payload.force,
         )
-        await redis.aclose()
     except Exception as exc:
         log.error("generate.enqueue_failed", job_id=str(job_id), error=str(exc))
         raise HTTPException(status_code=503, detail="Redis unavailable")
+    finally:
+        if redis is not None:
+            await redis.aclose()
 
     return JobResponse(job_id=str(job_id), status="pending")
 
@@ -122,6 +125,7 @@ async def trigger_batch_generate(
     db.add(job)
     await db.commit()
 
+    redis = None
     try:
         redis = await get_redis_pool()
         await redis.enqueue_job(
@@ -130,10 +134,12 @@ async def trigger_batch_generate(
             city_slugs=payload.city_slugs,
             force=payload.force,
         )
-        await redis.aclose()
     except Exception as exc:
         log.error("generate.batch_enqueue_failed", job_id=str(job_id), error=str(exc))
         raise HTTPException(status_code=503, detail="Redis unavailable")
+    finally:
+        if redis is not None:
+            await redis.aclose()
 
     return JobResponse(job_id=str(job_id), status="pending")
 

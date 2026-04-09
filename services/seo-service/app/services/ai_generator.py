@@ -48,6 +48,7 @@ def _build_user_message(
     landmarks: list[str],
     keywords: list[str],
 ) -> str:
+    # base_price is stored in fen (Chinese cents, 1 yuan = 100 fen)
     price_str = f"{base_price / 100:.0f}" if base_price else "面议"
     return USER_MESSAGE_TEMPLATE.format(
         city_name=city_name,
@@ -69,7 +70,11 @@ async def generate_seo_content(
     landmarks: list[str],
     keywords: list[str],
 ) -> dict:
-    """Call OpenAI to generate SEO content. Returns parsed JSON dict."""
+    """Call OpenAI to generate SEO content. Returns parsed JSON dict.
+
+    Args:
+        base_price: Reference price in fen (1 yuan = 100 fen). Converted to yuan for display.
+    """
     client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
     user_message = _build_user_message(
         city_name=city_name,

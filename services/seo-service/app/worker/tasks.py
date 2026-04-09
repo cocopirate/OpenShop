@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 import structlog
 from arq import ArqRedis
+from arq.connections import RedisSettings
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -129,8 +130,9 @@ async def generate_single_page(
                     retries += 1
                     log.warning("worker.duplicate_detected", slug=page_slug, retry=retries)
                     if retries > max_retries:
+                        # Retries exhausted: save the last result and let the caller
+                        # set status to needs_review below
                         content = generated
-                        # Mark as needs_review
                         break
                     continue
                 content = generated
@@ -332,9 +334,6 @@ async def generate_batch_pages(
         job.error_log = error_log
         job.finished_at = datetime.now(timezone.utc)
         await session.commit()
-
-
-from arq.connections import RedisSettings
 
 
 class WorkerSettings:
