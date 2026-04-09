@@ -83,6 +83,9 @@ export default defineConfig({
             { label: '订单服务', slug: '05-services/order-service/overview' },
             { label: '短信服务', slug: '05-services/sms-service/overview' },
             { label: '第三方服务集成', slug: '05-services/third-party-service/overview' },
+            { label: 'SEO内容生成服务', slug: '05-services/seo-service/overview' },
+            { label: 'SEO内容生成服务 API', slug: '05-services/seo-service/api' },
+            { label: 'SEO内容生成服务数据模型', slug: '05-services/seo-service/schema' },
           ],
         },
         {
@@ -95,6 +98,7 @@ export default defineConfig({
             { label: '订单服务 PRD', slug: '11-requirements/order-service' },
             { label: '短信服务 PRD', slug: '11-requirements/sms-service' },
             { label: '第三方服务 PRD', slug: '11-requirements/third-party-service' },
+            { label: 'SEO内容生成服务 PRD', slug: '11-requirements/seo-service' },
           ],
         },
         {

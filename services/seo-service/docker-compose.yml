@@ -1,0 +1,70 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: seo-postgres
+    environment:
+      POSTGRES_USER: openshop
+      POSTGRES_PASSWORD: openshop123
+      POSTGRES_DB: seo_db
+    ports:
+      - "5440:5432"
+    volumes:
+      - seo_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openshop -d seo_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: seo-redis
+    ports:
+      - "6390:6379"
+    volumes:
+      - seo_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  seo_api:
+    build: .
+    container_name: seo-api
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8020 --reload
+    ports:
+      - "8020:8020"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://openshop:openshop123@postgres:5432/seo_db
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./app:/app/app
+
+  seo_worker:
+    build: .
+    container_name: seo-worker
+    command: arq app.worker.tasks.WorkerSettings
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://openshop:openshop123@postgres:5432/seo_db
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./app:/app/app
+
+volumes:
+  seo_postgres_data:
+  seo_redis_data:
