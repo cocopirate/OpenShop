@@ -95,6 +95,7 @@ export default defineConfig({
             { label: '管理员服务 PRD', slug: '11-requirements/admin-service' },
             { label: '消费者服务 PRD', slug: '11-requirements/consumer-service' },
             { label: '商家服务 PRD', slug: '11-requirements/merchant-service' },
+            { label: '商品服务 PRD', slug: '11-requirements/product-service' },
             { label: '订单服务 PRD', slug: '11-requirements/order-service' },
             { label: '短信服务 PRD', slug: '11-requirements/sms-service' },
             { label: '第三方服务 PRD', slug: '11-requirements/third-party-service' },
