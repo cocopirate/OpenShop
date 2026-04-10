@@ -16,9 +16,9 @@ class Settings(BaseSettings):
     # Redis (ARQ broker)
     REDIS_URL: str = "redis://localhost:6379/0"
 
-    # OpenAI
-    OPENAI_API_KEY: str = "sk-placeholder"
-    OPENAI_MODEL: str = "gpt-4o-mini"
+    # AI Service
+    AI_SERVICE_URL: str = "http://localhost:8001"
+    AI_SERVICE_KEY: str = "seo-service-key-xxx"
 
     # Duplicate detection
     DUPLICATE_THRESHOLD: float = 0.75
