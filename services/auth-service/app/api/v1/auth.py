@@ -10,6 +10,7 @@ from app.core.response import (
     CREDENTIAL_ALREADY_EXISTS,
     INVALID_CREDENTIALS,
     MISSING_TOKEN,
+    REFRESH_TOKEN_INVALID,
     TOKEN_INVALID,
     err,
     ok,
@@ -22,14 +23,17 @@ from app.schemas.auth import (
     ConsumerRegisterRequest,
     ConsumerSmsLoginRequest,
     ConsumerTokenResponse,
+    LogoutRequest,
     MerchantLoginRequest,
     MerchantSubLoginRequest,
     MerchantSubTokenResponse,
     MerchantTokenResponse,
+    RefreshTokenRequest,
     StaffLoginRequest,
     StaffTokenResponse,
 )
 from app.services.auth_service import (
+    exchange_refresh_token,
     login_admin,
     login_consumer,
     login_merchant,
@@ -50,10 +54,10 @@ async def consumer_login(
     db: AsyncSession = Depends(get_db),
 ) -> JSONResponse:
     redis = get_redis()
-    token = await login_consumer(db, redis, request, body.phone, body.password)
+    access_token, refresh_token = await login_consumer(db, redis, request, body.phone, body.password)
     return JSONResponse(
         status_code=status.HTTP_200_OK,
-        content=ok(ConsumerTokenResponse(access_token=token).model_dump()),
+        content=ok(ConsumerTokenResponse(access_token=access_token, refresh_token=refresh_token).model_dump()),
     )
 
 
@@ -64,10 +68,10 @@ async def consumer_sms_login(
     db: AsyncSession = Depends(get_db),
 ) -> JSONResponse:
     redis = get_redis()
-    token = await login_or_register_consumer_by_sms(db, redis, request, body.phone, body.code)
+    access_token, refresh_token = await login_or_register_consumer_by_sms(db, redis, request, body.phone, body.code)
     return JSONResponse(
         status_code=status.HTTP_200_OK,
-        content=ok(ConsumerTokenResponse(access_token=token).model_dump()),
+        content=ok(ConsumerTokenResponse(access_token=access_token, refresh_token=refresh_token).model_dump()),
     )
 
 
@@ -78,10 +82,10 @@ async def merchant_login(
     db: AsyncSession = Depends(get_db),
 ) -> JSONResponse:
     redis = get_redis()
-    token, merchant_id = await login_merchant(db, redis, request, body.phone, body.password)
+    access_token, refresh_token, merchant_id = await login_merchant(db, redis, request, body.phone, body.password)
     return JSONResponse(
         status_code=status.HTTP_200_OK,
-        content=ok(MerchantTokenResponse(access_token=token, merchant_id=merchant_id).model_dump()),
+        content=ok(MerchantTokenResponse(access_token=access_token, refresh_token=refresh_token, merchant_id=merchant_id).model_dump()),
     )
 
 
@@ -92,14 +96,15 @@ async def merchant_sub_login(
     db: AsyncSession = Depends(get_db),
 ) -> JSONResponse:
     redis = get_redis()
-    token, merchant_id, permissions = await login_merchant_sub(
+    access_token, refresh_token, merchant_id, permissions = await login_merchant_sub(
         db, redis, request, body.username, body.password
     )
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=ok(
             MerchantSubTokenResponse(
-                access_token=token,
+                access_token=access_token,
+                refresh_token=refresh_token,
                 merchant_id=merchant_id,
                 permissions=permissions,
             ).model_dump()
@@ -114,10 +119,10 @@ async def staff_login(
     db: AsyncSession = Depends(get_db),
 ) -> JSONResponse:
     redis = get_redis()
-    token = await login_staff(db, redis, request, body.phone, body.password)
+    access_token, refresh_token = await login_staff(db, redis, request, body.phone, body.password)
     return JSONResponse(
         status_code=status.HTTP_200_OK,
-        content=ok(StaffTokenResponse(access_token=token).model_dump()),
+        content=ok(StaffTokenResponse(access_token=access_token, refresh_token=refresh_token).model_dump()),
     )
 
 
@@ -128,15 +133,54 @@ async def admin_login(
     db: AsyncSession = Depends(get_db),
 ) -> JSONResponse:
     redis = get_redis()
-    token = await login_admin(db, redis, request, body.username, body.password)
+    access_token, refresh_token = await login_admin(db, redis, request, body.username, body.password)
     return JSONResponse(
         status_code=status.HTTP_200_OK,
-        content=ok(AdminTokenResponse(access_token=token).model_dump()),
+        content=ok(AdminTokenResponse(access_token=access_token, refresh_token=refresh_token).model_dump()),
     )
 
 
-@router.post("/logout", summary="Logout – invalidate token via Redis version bump")
-async def logout(request: Request) -> JSONResponse:
+@router.post("/refresh", summary="Exchange refresh token for new access + refresh tokens", tags=["public"])
+async def refresh_token_endpoint(body: RefreshTokenRequest) -> JSONResponse:
+    redis = get_redis()
+    try:
+        new_access_token, new_refresh_token, payload = await exchange_refresh_token(redis, body.refresh_token)
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_401_UNAUTHORIZED:
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content=err(REFRESH_TOKEN_INVALID, exc.detail),
+            )
+        raise
+
+    account_type = payload.get("account_type", "")
+
+    if account_type == "admin":
+        data = AdminTokenResponse(access_token=new_access_token, refresh_token=new_refresh_token).model_dump()
+    elif account_type == "merchant":
+        data = MerchantTokenResponse(
+            access_token=new_access_token,
+            refresh_token=new_refresh_token,
+            merchant_id=str(payload.get("merchant_id", "")),
+        ).model_dump()
+    elif account_type == "merchant_sub":
+        data = MerchantSubTokenResponse(
+            access_token=new_access_token,
+            refresh_token=new_refresh_token,
+            merchant_id=str(payload.get("merchant_id", "")),
+            permissions=payload.get("permissions", []),
+        ).model_dump()
+    elif account_type == "merchant_staff":
+        data = StaffTokenResponse(access_token=new_access_token, refresh_token=new_refresh_token).model_dump()
+    else:
+        # consumer (default)
+        data = ConsumerTokenResponse(access_token=new_access_token, refresh_token=new_refresh_token).model_dump()
+
+    return JSONResponse(status_code=status.HTTP_200_OK, content=ok(data))
+
+
+@router.post("/logout", summary="Logout – invalidate access token and revoke refresh token")
+async def logout(request: Request, body: LogoutRequest | None = None) -> JSONResponse:
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
         return JSONResponse(
@@ -153,7 +197,8 @@ async def logout(request: Request) -> JSONResponse:
         )
 
     redis = get_redis()
-    await logout_token(redis, payload)
+    rt = body.refresh_token if body else None
+    await logout_token(redis, payload, refresh_token=rt)
     return JSONResponse(content=ok({"message": "logged out"}))
 
 

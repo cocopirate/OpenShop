@@ -5,9 +5,11 @@ from datetime import datetime
 
 import structlog
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import JSONResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.response import ok
 from app.database import get_db
 from app.models.call_log import CallLog
 from app.schemas import CallLogListResponse, CallLogResponse, LogStatsResponse, ServiceStats, TemplateStats
@@ -17,7 +19,7 @@ log = structlog.get_logger(__name__)
 router = APIRouter()
 
 
-@router.get("", response_model=CallLogListResponse)
+@router.get("")
 async def list_logs(
     caller_service: str | None = Query(default=None),
     template_key: str | None = Query(default=None),
@@ -27,7 +29,7 @@ async def list_logs(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-):
+) -> JSONResponse:
     stmt = select(CallLog)
 
     if caller_service:
@@ -49,20 +51,21 @@ async def list_logs(
     result = await db.execute(stmt)
     items = result.scalars().all()
 
-    return CallLogListResponse(
+    data = CallLogListResponse(
         items=[CallLogResponse.model_validate(i) for i in items],
         total=total,
         page=page,
         page_size=page_size,
     )
+    return JSONResponse(content=ok(data.model_dump()))
 
 
-@router.get("/stats", response_model=LogStatsResponse)
+@router.get("/stats")
 async def get_log_stats(
     date_from: datetime | None = Query(default=None),
     date_to: datetime | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
-):
+) -> JSONResponse:
     base_stmt = select(CallLog)
     if date_from:
         base_stmt = base_stmt.where(CallLog.created_at >= date_from)
@@ -127,4 +130,5 @@ async def get_log_stats(
         period_parts.append(date_to.strftime("%Y-%m-%d"))
     period = " ~ ".join(period_parts) if period_parts else "all time"
 
-    return LogStatsResponse(period=period, by_service=by_service, by_template=by_template)
+    data = LogStatsResponse(period=period, by_service=by_service, by_template=by_template)
+    return JSONResponse(content=ok(data.model_dump()))

@@ -7,11 +7,20 @@ import uuid
 
 import redis.asyncio as aioredis
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.config import settings
+from app.core.response import (
+    PROVIDER_ERROR,
+    RATE_LIMITED,
+    TEMPLATE_NOT_FOUND,
+    TEMPLATE_VAR_MISSING,
+    error_response,
+    ok,
+)
 from app.database import get_db
 from app.models.call_log import CallLog
 from app.models.prompt_template import PromptTemplate
@@ -58,10 +67,11 @@ async def _run_completion(
     rate_limiter = RateLimiter(redis)
     allowed, retry_after = await rate_limiter.check_and_increment(caller_service)
     if not allowed:
-        raise HTTPException(
-            status_code=429,
-            detail={"error": "rate_limited", "retry_after": retry_after},
-        )
+        return error_response(
+            429,
+            RATE_LIMITED,
+            f"Rate limited. Retry after {retry_after}s",
+        )  # type: ignore[return-value]
 
     # Cache lookup
     result_cache = ResultCache(redis)
@@ -163,7 +173,7 @@ async def _run_completion(
     await db.flush()
 
     if status == "failed":
-        raise HTTPException(status_code=502, detail=error_message or "AI provider error")
+        return error_response(502, PROVIDER_ERROR, error_message or "AI provider error")  # type: ignore[return-value]
 
     content_str = result.content  # type: ignore[union-attr]
 
@@ -196,14 +206,14 @@ def _parse_content(content_str: str, response_format: str):
     return content_str
 
 
-@router.post("/raw", response_model=CompletionResponse)
+@router.post("/raw")
 async def complete_raw(
     body: RawCompleteRequest,
     request: Request,
     db: AsyncSession = Depends(get_db),
-):
+) -> JSONResponse:
     redis = _get_redis(request)
-    return await _run_completion(
+    result = await _run_completion(
         provider_name=body.provider,
         model=body.model,
         system_prompt=body.system_prompt,
@@ -219,14 +229,17 @@ async def complete_raw(
         db=db,
         redis=redis,
     )
+    if isinstance(result, JSONResponse):
+        return result
+    return JSONResponse(content=ok(result.model_dump()))
 
 
-@router.post("/template", response_model=CompletionResponse)
+@router.post("/template")
 async def complete_template(
     body: TemplateCompleteRequest,
     request: Request,
     db: AsyncSession = Depends(get_db),
-):
+) -> JSONResponse:
     # Look up active template
     result = await db.execute(
         select(PromptTemplate).where(
@@ -236,18 +249,18 @@ async def complete_template(
     )
     template = result.scalar_one_or_none()
     if template is None:
-        raise HTTPException(status_code=404, detail=f"No active template for key: {body.template_key}")
+        return error_response(404, TEMPLATE_NOT_FOUND, f"No active template for key: {body.template_key}")
 
     # Render user prompt template
     try:
         user_prompt = str(template.user_prompt_template).format(**body.variables)
     except KeyError as exc:
-        raise HTTPException(status_code=422, detail=f"Missing template variable: {exc}")
+        return error_response(422, TEMPLATE_VAR_MISSING, f"Missing template variable: {exc}")
 
     model = str(template.model or settings.OPENAI_DEFAULT_MODEL)
     redis = _get_redis(request)
 
-    return await _run_completion(
+    completion = await _run_completion(
         provider_name=str(template.provider),
         model=model,
         system_prompt=str(template.system_prompt),
@@ -263,3 +276,6 @@ async def complete_template(
         db=db,
         redis=redis,
     )
+    if isinstance(completion, JSONResponse):
+        return completion
+    return JSONResponse(content=ok(completion.model_dump()))

@@ -21,6 +21,7 @@ log = structlog.get_logger(__name__)
 ROUTE_MAP = {
     "/api/auth": settings.AUTH_SERVICE_URL,
     "/api/admins": settings.ADMIN_SERVICE_URL,
+    "/api/v1/ai": settings.AI_SERVICE_URL,
     # "/api/sms": settings.SMS_SERVICE_URL,
     # "/api/consumers": settings.CONSUMER_SERVICE_URL,
     # BFF aggregation routes

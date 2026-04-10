@@ -20,7 +20,13 @@ class Settings(BaseSettings):
     # Security
     SECRET_KEY: str = "change-this-secret-key-in-production"
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 120  # 2h
+
+    # Refresh token TTL
+    # Admin: 固定 30 天（remember-me）
+    REFRESH_TOKEN_ADMIN_TTL_DAYS: int = 30
+    # Consumer: 滑动 30 天（近 30 天内有访问则持续保持登录）
+    REFRESH_TOKEN_CONSUMER_TTL_DAYS: int = 30
 
     # Upstream services
     MERCHANT_SERVICE_URL: str = "http://merchant-service:8002"

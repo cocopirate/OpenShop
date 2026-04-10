@@ -13,6 +13,12 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.config import settings
+from app.core.response import (
+    INTERNAL_ERROR,
+    VALIDATION_ERROR,
+    err,
+    set_request_id,
+)
 from app.database import engine
 from app.middleware.auth import ServiceAuthMiddleware
 from app.routers.complete import router as complete_router
@@ -50,6 +56,7 @@ app.add_middleware(ServiceAuthMiddleware)
 @app.middleware("http")
 async def request_id_middleware(request: Request, call_next):
     rid = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+    set_request_id(rid)
     response = await call_next(request)
     response.headers["X-Request-ID"] = rid
     return response
@@ -59,7 +66,16 @@ async def request_id_middleware(request: Request, call_next):
 async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
     return JSONResponse(
         status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={"detail": exc.errors()},
+        content=err(VALIDATION_ERROR, str(exc.errors())),
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    log.error("unhandled_exception", error=str(exc))
+    return JSONResponse(
+        status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content=err(INTERNAL_ERROR, "Internal server error"),
     )
 
 

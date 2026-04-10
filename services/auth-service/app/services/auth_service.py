@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import structlog
 from fastapi import HTTPException, Request, status
 from redis.asyncio import Redis
@@ -9,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import httpx
 
 from app.core.config import settings
-from app.core.security import create_access_token, hash_password, verify_password
+from app.core.security import create_access_token, generate_refresh_token, hash_password, verify_password
 from app.models.credential import AuthCredential, AuthLoginLog
 
 log = structlog.get_logger(__name__)
@@ -30,6 +31,9 @@ IDENTITY_EMAIL = 2
 IDENTITY_USERNAME = 3
 IDENTITY_WECHAT = 4
 
+# Sliding-window refresh token account types (TTL resets on each refresh)
+_SLIDING_ACCOUNT_TYPES = {"consumer"}
+
 
 def _get_client_ip(request: Request) -> str:
     """Extract client IP from X-Forwarded-For, X-Real-IP, or direct connection."""
@@ -42,6 +46,29 @@ def _get_client_ip(request: Request) -> str:
     if request.client:
         return request.client.host
     return ""
+
+
+async def _store_refresh_token(
+    redis: Redis,
+    rt: str,
+    payload: dict,
+    account_type: str,
+    fixed_ttl_seconds: int | None = None,
+) -> None:
+    """Persist *rt* → JSON payload in Redis with the appropriate TTL.
+
+    Consumer accounts use a sliding window (TTL resets on each exchange).
+    All other account types use a fixed window (TTL never extends).
+    ``fixed_ttl_seconds`` allows callers to preserve the remaining TTL on
+    token rotation so the original absolute expiry is honoured.
+    """
+    key = f"rt:{rt}"
+    value = json.dumps(payload)
+    if account_type in _SLIDING_ACCOUNT_TYPES:
+        ttl = settings.REFRESH_TOKEN_CONSUMER_TTL_DAYS * 86400
+    else:
+        ttl = fixed_ttl_seconds if fixed_ttl_seconds is not None else settings.REFRESH_TOKEN_ADMIN_TTL_DAYS * 86400
+    await redis.set(key, value, ex=ttl)
 
 
 async def _get_auth_version(redis: Redis, biz_id: int, account_type: int) -> int:
@@ -101,7 +128,7 @@ async def login_consumer(
     request: Request,
     phone: str,
     password: str,
-) -> str:
+) -> tuple[str, str]:
     ip = _get_client_ip(request)
     device_info = request.headers.get("User-Agent")
 
@@ -122,8 +149,14 @@ async def login_consumer(
         "account_type": "consumer",
         "ver": ver,
     })
+    rt = generate_refresh_token()
+    await _store_refresh_token(redis, rt, {
+        "biz_id": cred.biz_id,
+        "account_type": "consumer",
+        "ver": ver,
+    }, "consumer")
     await _log_attempt(db, cred.biz_id, ACCOUNT_CONSUMER, ip, device_info, 1)
-    return token
+    return token, rt
 
 
 # --------------------------------------------------------------------------- #
@@ -137,7 +170,7 @@ async def login_merchant(
     request: Request,
     phone: str,
     password: str,
-) -> tuple[str, str]:
+) -> tuple[str, str, str]:
     ip = _get_client_ip(request)
     device_info = request.headers.get("User-Agent")
 
@@ -159,8 +192,15 @@ async def login_merchant(
         "merchant_id": str(cred.biz_id),
         "ver": ver,
     })
+    rt = generate_refresh_token()
+    await _store_refresh_token(redis, rt, {
+        "biz_id": cred.biz_id,
+        "account_type": "merchant",
+        "merchant_id": str(cred.biz_id),
+        "ver": ver,
+    }, "merchant")
     await _log_attempt(db, cred.biz_id, ACCOUNT_MERCHANT, ip, device_info, 1)
-    return token, str(cred.biz_id)
+    return token, rt, str(cred.biz_id)
 
 
 # --------------------------------------------------------------------------- #
@@ -174,7 +214,7 @@ async def login_merchant_sub(
     request: Request,
     username: str,
     password: str,
-) -> tuple[str, str, list[str]]:
+) -> tuple[str, str, str, list[str]]:
     ip = _get_client_ip(request)
     device_info = request.headers.get("User-Agent")
 
@@ -200,8 +240,16 @@ async def login_merchant_sub(
         "permissions": permissions,
         "ver": ver,
     })
+    rt = generate_refresh_token()
+    await _store_refresh_token(redis, rt, {
+        "biz_id": cred.biz_id,
+        "account_type": "merchant_sub",
+        "merchant_id": merchant_id,
+        "permissions": permissions,
+        "ver": ver,
+    }, "merchant_sub")
     await _log_attempt(db, cred.biz_id, ACCOUNT_MERCHANT_SUB, ip, device_info, 1)
-    return token, merchant_id, permissions
+    return token, rt, merchant_id, permissions
 
 
 # --------------------------------------------------------------------------- #
@@ -215,7 +263,7 @@ async def login_staff(
     request: Request,
     phone: str,
     password: str,
-) -> str:
+) -> tuple[str, str]:
     ip = _get_client_ip(request)
     device_info = request.headers.get("User-Agent")
 
@@ -242,8 +290,17 @@ async def login_staff(
         "job_type": job_type,
         "ver": ver,
     })
+    rt = generate_refresh_token()
+    await _store_refresh_token(redis, rt, {
+        "biz_id": cred.biz_id,
+        "account_type": "merchant_staff",
+        "merchant_id": merchant_id,
+        "store_id": store_id,
+        "job_type": job_type,
+        "ver": ver,
+    }, "merchant_staff")
     await _log_attempt(db, cred.biz_id, ACCOUNT_STAFF, ip, device_info, 1)
-    return token
+    return token, rt
 
 
 # --------------------------------------------------------------------------- #
@@ -257,7 +314,7 @@ async def login_admin(
     request: Request,
     username: str,
     password: str,
-) -> str:
+) -> tuple[str, str]:
     ip = _get_client_ip(request)
     device_info = request.headers.get("User-Agent")
 
@@ -282,8 +339,15 @@ async def login_admin(
         "permissions": permissions,
         "ver": ver,
     })
+    rt = generate_refresh_token()
+    await _store_refresh_token(redis, rt, {
+        "biz_id": cred.biz_id,
+        "account_type": "admin",
+        "permissions": permissions,
+        "ver": ver,
+    }, "admin")
     await _log_attempt(db, cred.biz_id, ACCOUNT_ADMIN, ip, device_info, 1)
-    return token
+    return token, rt
 
 
 # --------------------------------------------------------------------------- #
@@ -318,7 +382,11 @@ async def register_consumer(
 # --------------------------------------------------------------------------- #
 
 
-async def logout_token(redis: Redis, token_payload: dict) -> None:
+async def logout_token(
+    redis: Redis,
+    token_payload: dict,
+    refresh_token: str | None = None,
+) -> None:
     biz_id = token_payload.get("sub")
     account_type_str = token_payload.get("account_type", "")
 
@@ -330,6 +398,76 @@ async def logout_token(redis: Redis, token_payload: dict) -> None:
     ver_key = f"user_perm_ver:{biz_id}"
     await redis.incr(ver_key)
     await redis.expire(ver_key, AUTH_VERSION_TTL_SECONDS)
+
+    if refresh_token:
+        await redis.delete(f"rt:{refresh_token}")
+
+
+# --------------------------------------------------------------------------- #
+# Refresh token exchange                                                        #
+# --------------------------------------------------------------------------- #
+
+
+async def exchange_refresh_token(
+    redis: Redis,
+    refresh_token_str: str,
+) -> tuple[str, str, dict]:
+    """Validate *refresh_token_str*, rotate it, and issue a new access token.
+
+    Returns (new_access_token, new_refresh_token, rt_payload).
+
+    Rotation strategy:
+    - Consumer: sliding window — new refresh token gets a full TTL reset.
+    - All others: fixed window — new refresh token preserves the remaining TTL
+      so the absolute 30-day expiry established at login is never extended.
+    """
+    key = f"rt:{refresh_token_str}"
+
+    # Capture remaining TTL *before* any async gap
+    remaining_ttl: int = await redis.ttl(key)
+    raw = await redis.get(key)
+
+    if raw is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token invalid or expired",
+        )
+
+    payload: dict = json.loads(raw)
+    biz_id: int = int(payload["biz_id"])
+    account_type: str = payload["account_type"]
+
+    # Delete old token (rotation — one-time use)
+    await redis.delete(key)
+
+    # Re-read the live auth version so permissions/logout state is honoured
+    ver = await _get_auth_version(redis, biz_id, 0)
+
+    # Build new access-token claims, restoring optional extra fields
+    claims: dict = {
+        "sub": str(biz_id),
+        "uid": str(biz_id),
+        "account_type": account_type,
+        "ver": ver,
+    }
+    for field in ("merchant_id", "permissions", "store_id", "job_type"):
+        if field in payload:
+            claims[field] = payload[field]
+
+    new_access_token = create_access_token(claims)
+
+    # Determine new refresh token TTL
+    if account_type in _SLIDING_ACCOUNT_TYPES:
+        new_ttl: int | None = None  # _store_refresh_token will use full consumer TTL
+    else:
+        # Fixed window: preserve remaining TTL; fall back to default if key had no TTL
+        new_ttl = remaining_ttl if remaining_ttl > 0 else settings.REFRESH_TOKEN_ADMIN_TTL_DAYS * 86400
+
+    new_rt = generate_refresh_token()
+    new_rt_payload = {**payload, "ver": ver}
+    await _store_refresh_token(redis, new_rt, new_rt_payload, account_type, fixed_ttl_seconds=new_ttl)
+
+    return new_access_token, new_rt, payload
 
 
 # --------------------------------------------------------------------------- #
@@ -507,7 +645,7 @@ async def login_or_register_consumer_by_sms(
     request: Request,
     phone: str,
     code: str,
-) -> str:
+) -> tuple[str, str]:
     """Verify SMS code then log in or auto-register the consumer.
 
     - If the SMS code is invalid, raises 422.
@@ -563,5 +701,11 @@ async def login_or_register_consumer_by_sms(
         "account_type": "consumer",
         "ver": ver,
     })
+    rt = generate_refresh_token()
+    await _store_refresh_token(redis, rt, {
+        "biz_id": cred.biz_id,
+        "account_type": "consumer",
+        "ver": ver,
+    }, "consumer")
     await _log_attempt(db, cred.biz_id, ACCOUNT_CONSUMER, ip, device_info, 1)
-    return token
+    return token, rt

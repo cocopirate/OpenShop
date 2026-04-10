@@ -56,27 +56,45 @@ class ConsumerRegisterRequest(BaseModel):
 
 class ConsumerTokenResponse(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
 
 
 class MerchantTokenResponse(BaseModel):
     access_token: str
+    refresh_token: str
     merchant_id: str
 
 
 class MerchantSubTokenResponse(BaseModel):
     access_token: str
+    refresh_token: str
     merchant_id: str
     permissions: list[str]
 
 
 class StaffTokenResponse(BaseModel):
     access_token: str
+    refresh_token: str
 
 
 class AdminTokenResponse(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
+
+
+# --------------------------------------------------------------------------- #
+# Refresh request                                                               #
+# --------------------------------------------------------------------------- #
+
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
+
+
+class LogoutRequest(BaseModel):
+    refresh_token: str | None = None
 
 
 # --------------------------------------------------------------------------- #

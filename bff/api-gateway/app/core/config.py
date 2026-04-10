@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     NOTIFICATION_SERVICE_URL: str = "http://notification-service:8009"
     SMS_SERVICE_URL: str = "http://sms-service:8010"
     AUTH_SERVICE_URL: str = "http://auth-service:8000"
+    AI_SERVICE_URL: str = "http://ai-service:8021"
 
     # BFF services
     APP_BFF_URL: str = "http://app-bff:8090"
