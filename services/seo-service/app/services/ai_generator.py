@@ -49,7 +49,10 @@ async def generate_seo_content(
         )
         resp.raise_for_status()
 
-    result = resp.json()["content"]
+    body = resp.json()
+    if "content" not in body:
+        raise ValueError(f"AI Service response missing 'content' field: {body}")
+    result = body["content"]
 
     # Validate required keys
     required_keys = {"intro", "local_intro", "service_items", "cases", "faq", "cta"}

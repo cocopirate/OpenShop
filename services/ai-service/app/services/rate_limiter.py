@@ -33,7 +33,7 @@ class RateLimiter:
         pipe = self._redis.pipeline()
         pipe.incr(rpm_key)
         pipe.expire(rpm_key, 120)
-        pipe.incrby(tpm_key, max(token_count, 1))
+        pipe.incrby(tpm_key, token_count)
         pipe.expire(tpm_key, 120)
         results = await pipe.execute()
 
