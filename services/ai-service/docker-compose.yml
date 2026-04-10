@@ -1,0 +1,53 @@
+services:
+  ai_postgres:
+    image: postgres:15
+    container_name: ai-postgres
+    environment:
+      POSTGRES_USER: openshop
+      POSTGRES_PASSWORD: openshop123
+      POSTGRES_DB: ai_service_db
+    ports:
+      - "5441:5432"
+    volumes:
+      - ai_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openshop -d ai_service_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  ai_redis:
+    image: redis:7-alpine
+    container_name: ai-redis
+    ports:
+      - "6391:6379"
+    volumes:
+      - ai_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  ai_api:
+    build: .
+    container_name: ai-api
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8001:8000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://openshop:openshop123@ai_postgres:5432/ai_service_db
+      REDIS_URL: redis://ai_redis:6379/0
+    depends_on:
+      ai_postgres:
+        condition: service_healthy
+      ai_redis:
+        condition: service_healthy
+    volumes:
+      - ./app:/app/app
+
+volumes:
+  ai_postgres_data:
+  ai_redis_data:
