@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     SERVICE_NAME: str = "ai-service"
-    SERVICE_PORT: int = 8000
+    SERVICE_PORT: int = 8021
     DEBUG: bool = False
     APP_ENV: str = "development"
 
@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     # AI providers
     OPENAI_API_KEY: str = "sk-placeholder"
     OPENAI_DEFAULT_MODEL: str = "gpt-4o-mini"
+
+    # Aliyun Dashscope (Qwen / 百炼平台)
+    DASHSCOPE_API_KEY: str = "sk-placeholder"
+    QWEN_DEFAULT_MODEL: str = "qwen-plus"
 
     # Service-to-service auth keys
     SERVICE_KEY_SEO: str = ""

@@ -63,9 +63,9 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 
-app.include_router(complete_router, prefix="/complete", tags=["complete"])
-app.include_router(templates_router, prefix="/templates", tags=["templates"])
-app.include_router(logs_router, prefix="/logs", tags=["logs"])
+app.include_router(complete_router, prefix="/api/v1/ai/complete", tags=["complete"])
+app.include_router(templates_router, prefix="/api/v1/ai/templates", tags=["templates"])
+app.include_router(logs_router, prefix="/api/v1/ai/logs", tags=["logs"])
 
 
 @app.get("/health", tags=["health"], summary="Health check")

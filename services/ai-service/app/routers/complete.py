@@ -240,25 +240,25 @@ async def complete_template(
 
     # Render user prompt template
     try:
-        user_prompt = template.user_prompt_template.format(**body.variables)
+        user_prompt = str(template.user_prompt_template).format(**body.variables)
     except KeyError as exc:
         raise HTTPException(status_code=422, detail=f"Missing template variable: {exc}")
 
-    model = template.model or settings.OPENAI_DEFAULT_MODEL
+    model = str(template.model or settings.OPENAI_DEFAULT_MODEL)
     redis = _get_redis(request)
 
     return await _run_completion(
-        provider_name=template.provider,
+        provider_name=str(template.provider),
         model=model,
-        system_prompt=template.system_prompt,
+        system_prompt=str(template.system_prompt),
         user_prompt=user_prompt,
-        temperature=template.temperature,
-        max_tokens=template.max_tokens,
-        response_format=template.response_format,
+        temperature=float(template.temperature),
+        max_tokens=int(template.max_tokens),
+        response_format=str(template.response_format),
         caller_service=body.caller_service,
         caller_ref_id=body.caller_ref_id,
         template_key=body.template_key,
-        template_version=template.version,
+        template_version=int(template.version),
         cache_ttl_seconds=body.cache_ttl_seconds,
         db=db,
         redis=redis,

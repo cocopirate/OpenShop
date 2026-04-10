@@ -20,6 +20,9 @@ def get_provider(name: str) -> BaseProvider:
         elif name == "anthropic":
             from app.services.providers.anthropic import AnthropicProvider
             _providers[name] = AnthropicProvider()
+        elif name == "qwen":
+            from app.services.providers.qwen import QwenProvider
+            _providers[name] = QwenProvider()
         else:
             raise ValueError(f"Unknown provider: {name}")
     return _providers[name]
